@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+
+node_modules/
+npm-debug.log*
+
+data/postgres/
+data/redis/
+data/evolution/
+data/n8n/
+
+portal/logs/
+*.log
+
+.DS_Store
