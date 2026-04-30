@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="Mockup hotspot WiFi Soldamaq">
+  <defs>
+    <linearGradient id="dark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111"/>
+      <stop offset="1" stop-color="#2d2d2d"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000" flood-opacity=".2"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="900" fill="#f5f3ea"/>
+  <rect width="1600" height="250" fill="url(#dark)"/>
+  <g transform="translate(90 56)">
+    <rect width="70" height="70" rx="10" fill="#ffd200"/>
+    <text x="35" y="48" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900" fill="#151515">S</text>
+    <text x="92" y="30" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="900" fill="#fff" letter-spacing="2">SOLDAMAQ</text>
+    <text x="94" y="58" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" fill="#ffd200">A Mais Profissional</text>
+  </g>
+  <text x="90" y="175" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="900" fill="#ffd200" letter-spacing="1">PILOTO HOTSPOT WIFI</text>
+  <text x="90" y="220" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="900" fill="#fff">Portal com validação por WhatsApp</text>
+  <text x="90" y="260" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#e8e4d8">LGPD, cadastro, OTP, avaliação opcional e liberação UniFi para lojas Soldamaq.</text>
+
+  <g transform="translate(70 310)">
+    <rect width="340" height="500" rx="12" fill="#fff" filter="url(#shadow)"/>
+    <text x="28" y="42" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="900" fill="#151515">1. Cadastro</text>
+    <g transform="translate(58 70)">
+      <rect width="224" height="390" rx="32" fill="#151515"/>
+      <rect x="14" y="16" width="196" height="358" rx="24" fill="#fffdf7"/>
+      <rect x="34" y="42" width="34" height="34" rx="7" fill="#ffd200"/>
+      <text x="51" y="66" text-anchor="middle" font-family="Arial" font-size="18" font-weight="900" fill="#151515">S</text>
+      <text x="78" y="63" font-family="Arial" font-size="12" font-weight="900" fill="#151515">SOLDAMAQ</text>
+      <rect x="34" y="90" width="156" height="7" rx="4" fill="#ebe7da"/>
+      <rect x="34" y="90" width="42" height="7" rx="4" fill="#ffd200"/>
+      <circle cx="58" cy="132" r="26" fill="#151515"/>
+      <text x="58" y="142" text-anchor="middle" font-family="Arial" font-size="30" font-weight="900" fill="#ffd200">✓</text>
+      <text x="34" y="190" font-family="Arial" font-size="22" font-weight="900" fill="#151515">Bem-vindo</text>
+      <text x="34" y="220" font-family="Arial" font-size="13" fill="#5f5a4b">Aceite a LGPD e informe</text>
+      <text x="34" y="238" font-family="Arial" font-size="13" fill="#5f5a4b">seu WhatsApp.</text>
+      <rect x="34" y="270" width="156" height="42" rx="6" fill="#fff" stroke="#d2cab8"/>
+      <rect x="34" y="326" width="156" height="42" rx="6" fill="#fff" stroke="#d2cab8"/>
+    </g>
+  </g>
+
+  <g transform="translate(450 310)">
+    <rect width="340" height="500" rx="12" fill="#fff" filter="url(#shadow)"/>
+    <text x="28" y="42" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="900" fill="#151515">2. OTP WhatsApp</text>
+    <g transform="translate(58 70)">
+      <rect width="224" height="390" rx="32" fill="#151515"/>
+      <rect x="14" y="16" width="196" height="358" rx="24" fill="#fffdf7"/>
+      <rect x="34" y="42" width="156" height="58" rx="8" fill="#effdf3" stroke="#bae7c9"/>
+      <text x="46" y="64" font-family="Arial" font-size="12" font-weight="900" fill="#20b35a">WhatsApp</text>
+      <text x="46" y="86" font-family="Arial" font-size="16" font-weight="900" fill="#151515">Código: 482913</text>
+      <text x="34" y="148" font-family="Arial" font-size="22" font-weight="900" fill="#151515">Digite o código</text>
+      <text x="34" y="178" font-family="Arial" font-size="13" fill="#5f5a4b">Validação obrigatória</text>
+      <g transform="translate(34 210)" fill="#fff" stroke="#d2cab8">
+        <rect width="22" height="40" rx="6"/><rect x="27" width="22" height="40" rx="6"/><rect x="54" width="22" height="40" rx="6"/>
+        <rect x="81" width="22" height="40" rx="6"/><rect x="108" width="22" height="40" rx="6"/><rect x="135" width="22" height="40" rx="6"/>
+      </g>
+      <text x="112" y="240" text-anchor="middle" font-family="Arial" font-size="18" font-weight="900" fill="#151515">4 8 2 9 1 3</text>
+      <rect x="34" y="294" width="156" height="46" rx="7" fill="#ffd200"/>
+      <text x="112" y="323" text-anchor="middle" font-family="Arial" font-size="13" font-weight="900" fill="#151515">Validar código</text>
+    </g>
+  </g>
+
+  <g transform="translate(830 310)">
+    <rect width="340" height="500" rx="12" fill="#fff" filter="url(#shadow)"/>
+    <text x="28" y="42" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="900" fill="#151515">3. Avaliação</text>
+    <g transform="translate(58 70)">
+      <rect width="224" height="390" rx="32" fill="#151515"/>
+      <rect x="14" y="16" width="196" height="358" rx="24" fill="#fffdf7"/>
+      <rect x="34" y="58" width="156" height="62" rx="8" fill="#151515"/>
+      <text x="112" y="98" text-anchor="middle" font-family="Arial" font-size="27" font-weight="900" fill="#ffd200">★★★★★</text>
+      <text x="34" y="170" font-family="Arial" font-size="22" font-weight="900" fill="#151515">Como foi</text>
+      <text x="34" y="195" font-family="Arial" font-size="22" font-weight="900" fill="#151515">sua visita?</text>
+      <text x="34" y="230" font-family="Arial" font-size="13" fill="#5f5a4b">A avaliação é opcional.</text>
+      <rect x="34" y="270" width="156" height="44" rx="7" fill="#151515"/>
+      <text x="112" y="298" text-anchor="middle" font-family="Arial" font-size="12" font-weight="900" fill="#ffd200">Avaliar no Google</text>
+      <rect x="34" y="324" width="156" height="44" rx="7" fill="#ffd200"/>
+      <text x="112" y="352" text-anchor="middle" font-family="Arial" font-size="12" font-weight="900" fill="#151515">Liberar internet</text>
+    </g>
+  </g>
+
+  <g transform="translate(1210 310)">
+    <rect width="340" height="500" rx="12" fill="#fff" filter="url(#shadow)"/>
+    <text x="28" y="42" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="900" fill="#151515">4. Liberação</text>
+    <g transform="translate(58 70)">
+      <rect width="224" height="390" rx="32" fill="#151515"/>
+      <rect x="14" y="16" width="196" height="358" rx="24" fill="#fff8d5"/>
+      <g transform="translate(72 66)">
+        <rect y="52" width="24" height="58" rx="8" fill="#151515"/>
+        <rect x="34" y="28" width="24" height="82" rx="8" fill="#f2b705"/>
+        <rect x="68" width="24" height="110" rx="8" fill="#20b35a"/>
+      </g>
+      <text x="34" y="220" font-family="Arial" font-size="24" font-weight="900" fill="#151515">Internet</text>
+      <text x="34" y="248" font-family="Arial" font-size="24" font-weight="900" fill="#151515">liberada</text>
+      <rect x="34" y="278" width="156" height="54" rx="8" fill="#fff" stroke="#e2d99e"/>
+      <text x="48" y="302" font-family="Arial" font-size="12" fill="#5f5a4b">Tempo</text>
+      <text x="148" y="302" font-family="Arial" font-size="12" font-weight="900" fill="#151515">8 horas</text>
+      <text x="48" y="322" font-family="Arial" font-size="12" fill="#5f5a4b">Rede</text>
+      <text x="126" y="322" font-family="Arial" font-size="12" font-weight="900" fill="#151515">Visitantes</text>
+    </g>
+  </g>
+
+  <g transform="translate(90 845)">
+    <rect width="120" height="8" rx="4" fill="#ffd200"/>
+    <text x="150" y="10" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" fill="#151515">Multi-loja • WhatsApp obrigatório • LGPD • Base para CRM e dashboards futuros</text>
+  </g>
+</svg>
