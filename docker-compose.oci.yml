@@ -1,0 +1,82 @@
+name: hotspot-soldamaq
+
+services:
+  portal-app:
+    build:
+      context: ./portal
+    container_name: hotspot_portal
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    depends_on:
+      hotspot-postgres:
+        condition: service_healthy
+      hotspot-redis:
+        condition: service_healthy
+    volumes:
+      - hotspot_portal_logs:/app/logs
+    networks:
+      - hotspot_data
+      - automation_net
+
+  worker:
+    build:
+      context: ./portal
+    container_name: hotspot_worker
+    restart: unless-stopped
+    command: ["node", "src/worker.js"]
+    env_file:
+      - ./.env
+    depends_on:
+      - portal-app
+      - hotspot-postgres
+      - hotspot-redis
+    volumes:
+      - hotspot_portal_logs:/app/logs
+    networks:
+      - hotspot_data
+      - automation_net
+
+  hotspot-postgres:
+    image: postgres:15
+    container_name: hotspot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - hotspot_postgres_data:/var/lib/postgresql/data
+      - ./data/postgres-init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - hotspot_data
+
+  hotspot-redis:
+    image: redis:7
+    container_name: hotspot_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - hotspot_redis_data:/data
+    networks:
+      - hotspot_data
+
+networks:
+  hotspot_data:
+  automation_net:
+    external: true
+
+volumes:
+  hotspot_postgres_data:
+  hotspot_redis_data:
+  hotspot_portal_logs:
