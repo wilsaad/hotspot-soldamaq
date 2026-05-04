@@ -14,8 +14,7 @@ function layout({ title, body, error = '', step = 1 }) {
   <main class="shell">
     <section class="panel">
       <div class="brand">
-        <span class="brand-mark">S</span>
-        <span><strong>SOLDAMAQ</strong><small>A Mais Profissional</small></span>
+        <img src="/public/images/soldamaq-logo.png" alt="Soldamaq">
       </div>
       <div class="steps" aria-label="Etapa ${step} de 5"><span style="width:${step * 20}%"></span></div>
       ${error ? `<p class="error">${escapeHtml(error)}</p>` : ''}

@@ -42,36 +42,13 @@ body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
   margin-bottom: 14px;
 }
 
-.brand-mark {
-  width: 44px;
-  height: 44px;
-  border-radius: 7px;
-  background: var(--brand);
-  color: #171717;
-  display: grid;
-  place-items: center;
-  font-size: 26px;
-  font-weight: 900;
-}
-
-.brand strong {
+.brand img {
+  width: min(234px, 72vw);
+  height: auto;
   display: block;
-  color: #171717;
-  font-size: 20px;
-  letter-spacing: .04em;
-  line-height: 1;
-}
-
-.brand small {
-  display: block;
-  color: #8b7300;
-  font-size: 12px;
-  font-weight: 800;
-  margin-top: 4px;
 }
 
 .steps {
