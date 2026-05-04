@@ -86,13 +86,20 @@ export function googleReviewView({ store, error }) {
   });
 }
 
-export function doneView() {
+export function doneView({ store } = {}) {
+  const reviewUrl = store?.google_review_url
+    || (store?.google_place_id
+    ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(store.google_place_id)}`
+    : '');
+  const browserUrl = reviewUrl || 'http://neverssl.com/';
+  const buttonLabel = reviewUrl ? 'Avaliar loja no Google' : 'Abrir navegador';
+
   return layout({
     title: 'WiFi liberado',
     step: 5,
     body: `<h1>Internet liberada</h1>
       <p>Pronto. Voce ja pode navegar normalmente.</p>
-      <a class="button" href="http://neverssl.com/">Abrir navegador</a>`
+      <a class="button" href="${escapeHtml(browserUrl)}">${buttonLabel}</a>`
   });
 }
 

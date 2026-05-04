@@ -162,7 +162,7 @@ app.post('/authorize', requireSession, async (req, res, next) => {
       google_review_url: req.session.store?.google_review_url,
       evento: 'post_login'
     });
-    res.send(doneView());
+    res.send(doneView({ store: req.session.store }));
   } catch (error) {
     next(error);
   }
