@@ -1,5 +1,8 @@
 {
+  "id": "hotspotSendOtp01",
   "name": "Hotspot - Enviar OTP WhatsApp",
+  "active": true,
+  "settings": {},
   "nodes": [
     {
       "parameters": {

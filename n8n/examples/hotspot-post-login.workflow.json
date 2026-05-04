@@ -1,5 +1,8 @@
 {
+  "id": "hotspotPostLogin1",
   "name": "Hotspot - Mensagem Pos Login",
+  "active": true,
+  "settings": {},
   "nodes": [
     {
       "parameters": {
