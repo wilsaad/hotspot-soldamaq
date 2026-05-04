@@ -15,6 +15,7 @@ portal/logs/
 *.log
 
 .DS_Store
+mockups/soldamaq-hotspot-kit/*-html.pdf
 
 .deploy/
 *.pem
