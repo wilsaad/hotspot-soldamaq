@@ -29,7 +29,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"number\":\"{{$json.body.telefone}}\",\"text\":\"Obrigado pela visita! Avalie nossa loja: https://search.google.com/local/writereview?placeid={{$json.body.google_place_id}}\"}"
+        "jsonBody": "={\"number\":\"{{$json.body.telefone}}\",\"text\":\"Obrigado pela visita! Avalie nossa loja: {{$json.body.google_review_url || ('https://search.google.com/local/writereview?placeid=' + $json.body.google_place_id)}}\"}"
       },
       "id": "EvolutionSendText",
       "name": "Evolution - Send Text",

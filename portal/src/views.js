@@ -67,9 +67,10 @@ export function otpView({ telefone, error, sent = false }) {
 }
 
 export function googleReviewView({ store, error }) {
-  const reviewUrl = store?.google_place_id
+  const reviewUrl = store?.google_review_url
+    || (store?.google_place_id
     ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(store.google_place_id)}`
-    : '';
+    : '');
   return layout({
     title: 'Avalie a loja',
     step: 4,

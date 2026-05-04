@@ -159,6 +159,7 @@ app.post('/authorize', requireSession, async (req, res, next) => {
       site: req.session.site,
       store_id: req.session.store?.id,
       google_place_id: req.session.store?.google_place_id,
+      google_review_url: req.session.store?.google_review_url,
       evento: 'post_login'
     });
     res.send(doneView());

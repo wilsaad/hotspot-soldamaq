@@ -5,6 +5,7 @@ create table if not exists stores (
   name text not null,
   unifi_site text not null unique,
   google_place_id text,
+  google_review_url text,
   ap_aliases text[] default '{}',
   created_at timestamptz not null default now()
 );
