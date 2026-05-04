@@ -1,6 +1,6 @@
 import express from 'express';
 import session from 'express-session';
-import RedisStore from 'connect-redis';
+import { RedisStore } from 'connect-redis';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'node:path';
