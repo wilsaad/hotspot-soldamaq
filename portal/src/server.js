@@ -46,12 +46,12 @@ app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
 app.get('/', (req, res) => res.redirect(`/portal${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`));
 
-app.get('/portal', async (req, res, next) => {
+app.get(['/portal', '/guest/s/:site'], async (req, res, next) => {
   try {
     const mac = String(req.query.mac || req.query.id || '').toLowerCase();
     const ap = String(req.query.ap || '').toLowerCase();
     const ssid = String(req.query.ssid || '');
-    const site = String(req.query.site || config.unifi.defaultSite);
+    const site = String(req.query.site || req.params.site || config.unifi.defaultSite);
 
     if (!mac || !/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(mac)) {
       return res.status(400).send(lgpdView({ store: null, error: 'Parametro MAC ausente ou invalido.' }));
