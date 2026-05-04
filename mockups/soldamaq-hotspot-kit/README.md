@@ -11,7 +11,9 @@ Arquivos:
 
 - `index.html`: prancha com as quatro telas.
 - `styles.css`: identidade visual e phone mockups.
-- `soldamaq-hotspot-kit.png`: imagem exportada da prancha, quando renderizada.
+- `soldamaq-hotspot-kit.svg`: arte vetorial 16:9 para proposta.
+- `soldamaq-hotspot-kit.svg.png`: preview em PNG.
+- `soldamaq-hotspot-kit.pdf`: PDF de 1 pagina pronto para envio ao cliente.
 
 Como abrir:
 
