@@ -27,6 +27,10 @@ export const config = {
   n8nPostLoginUrl: process.env.N8N_WEBHOOK_POST_LOGIN_URL || '',
   n8nSharedSecret: process.env.N8N_SHARED_SECRET || '',
   postLoginMessageEnabled: bool('POST_LOGIN_MESSAGE_ENABLED', true),
+  admin: {
+    username: process.env.ADMIN_USERNAME || '',
+    password: process.env.ADMIN_PASSWORD || ''
+  },
   unifi: {
     baseUrl: process.env.UNIFI_BASE_URL || '',
     username: process.env.UNIFI_USERNAME || '',

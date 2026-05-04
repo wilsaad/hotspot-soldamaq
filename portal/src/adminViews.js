@@ -1,0 +1,246 @@
+import { displayPhone } from './phone.js';
+import { escapeHtml } from './views.js';
+
+function adminLayout({ title, body }) {
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <title>${escapeHtml(title)}</title>
+  <link rel="stylesheet" href="/public/admin.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <strong>SOLDAMAQ</strong>
+      <span>Gestao do Hotspot</span>
+    </div>
+    <nav>
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/sessions">Sessoes</a>
+    </nav>
+  </header>
+  <main class="admin-shell">${body}</main>
+</body>
+</html>`;
+}
+
+export function adminDashboardView({ data }) {
+  const summary = data.summary || {};
+  return adminLayout({
+    title: 'Gestao Hotspot',
+    body: `<section class="hero">
+        <div>
+          <h1>Dados coletados no WiFi</h1>
+          <p>Visao operacional das autenticacoes, telefones recorrentes e jornada dos clientes.</p>
+        </div>
+      </section>
+
+      <section class="metrics">
+        ${metric('Sessoes', summary.total_sessions)}
+        ${metric('Telefones unicos', summary.unique_phones)}
+        ${metric('Dispositivos unicos', summary.unique_devices)}
+        ${metric('OTP validado', `${percent(summary.otp_validated, summary.total_sessions)}%`)}
+        ${metric('Autorizados', `${percent(summary.authorized, summary.total_sessions)}%`)}
+        ${metric('Ultimas 24h', summary.sessions_24h)}
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Por loja</h2>
+          </div>
+          ${table({
+            headers: ['Loja', 'Sessoes', 'Telefones', 'OTP', 'Autorizados', 'Ultimo acesso'],
+            rows: data.byStore.map((row) => [
+              row.store_name,
+              row.sessions,
+              row.unique_phones,
+              row.otp_validated,
+              row.authorized,
+              formatDate(row.last_seen)
+            ])
+          })}
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Telefones recorrentes</h2>
+          </div>
+          ${table({
+            headers: ['Telefone', 'Nome', 'Visitas', 'Lojas', 'Media entre visitas'],
+            rows: data.recurrentPhones.map((row) => [
+              raw(phoneLink(row.telefone)),
+              row.nome || '',
+              row.visits,
+              row.stores_visited,
+              minutes(row.avg_minutes_between_visits)
+            ])
+          })}
+        </article>
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Sessoes recentes</h2>
+            <a href="/admin/sessions">Ver todas</a>
+          </div>
+          ${sessionsTable(data.recentSessions.slice(0, 20))}
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Maiores tempos ate liberar</h2>
+          </div>
+          ${table({
+            headers: ['Cliente', 'Loja', 'MAC', 'Tempo', 'Data'],
+            rows: data.slowFunnels.map((row) => [
+              row.nome || displayPhone(row.telefone || ''),
+              row.store_name,
+              row.mac,
+              seconds(row.seconds_to_authorize),
+              formatDate(row.created_at)
+            ])
+          })}
+        </article>
+      </section>`
+  });
+}
+
+export function adminSessionsView({ sessions }) {
+  return adminLayout({
+    title: 'Sessoes Hotspot',
+    body: `<section class="hero compact">
+        <div>
+          <h1>Sessoes recentes</h1>
+          <p>Ultimos acessos registrados no captive portal.</p>
+        </div>
+      </section>
+      <article class="panel">${sessionsTable(sessions)}</article>`
+  });
+}
+
+export function adminPhoneView({ profile, sessions, telefone }) {
+  return adminLayout({
+    title: 'Telefone Hotspot',
+    body: `<section class="hero compact">
+        <div>
+          <h1>${escapeHtml(displayPhone(telefone))}</h1>
+          <p>${escapeHtml(profile?.nome || 'Cliente identificado pelo telefone')}</p>
+        </div>
+      </section>
+
+      <section class="metrics">
+        ${metric('Visitas', profile?.visits || 0)}
+        ${metric('Dispositivos', profile?.devices || 0)}
+        ${metric('Lojas visitadas', profile?.stores_visited || 0)}
+        ${metric('Primeiro acesso', formatDate(profile?.first_seen))}
+        ${metric('Ultimo acesso', formatDate(profile?.last_seen))}
+        ${metric('Media entre visitas', minutes(profile?.avg_minutes_between_visits))}
+      </section>
+
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Historico de conexoes</h2>
+        </div>
+        ${table({
+          headers: ['Data', 'Loja', 'Nome', 'MAC', 'AP', 'SSID', 'Desde anterior', 'Liberacao', 'Status'],
+          rows: sessions.map((row) => [
+            formatDate(row.created_at),
+            row.store_name,
+            row.nome || '',
+            row.mac,
+            row.ap || '',
+            row.ssid || '',
+            seconds(row.seconds_since_previous),
+            seconds(row.seconds_to_authorize),
+            status(row)
+          ])
+        })}
+      </article>`
+  });
+}
+
+function sessionsTable(rows) {
+  return table({
+    headers: ['Data', 'Loja', 'Nome', 'Telefone', 'MAC', 'AP', 'Liberacao', 'Status'],
+    rows: rows.map((row) => [
+      formatDate(row.created_at),
+      row.store_name,
+      row.nome || '',
+      row.telefone ? raw(phoneLink(row.telefone)) : '',
+      row.mac,
+      row.ap || '',
+      seconds(row.seconds_to_authorize),
+      status(row)
+    ])
+  });
+}
+
+function metric(label, value) {
+  return `<article class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? 0)}</strong></article>`;
+}
+
+function table({ headers, rows }) {
+  if (!rows.length) return '<p class="empty">Nenhum dado encontrado ainda.</p>';
+  return `<div class="table-wrap"><table>
+    <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${renderCell(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function phoneLink(telefone) {
+  return `<a href="/admin/phones/${encodeURIComponent(telefone)}">${escapeHtml(displayPhone(telefone))}</a>`;
+}
+
+function status(row) {
+  if (row.autorizado) return raw('<span class="badge ok">Autorizado</span>');
+  if (row.otp_validado) return raw('<span class="badge warn">OTP validado</span>');
+  return raw('<span class="badge muted">Pendente</span>');
+}
+
+function raw(html) {
+  return { __html: html };
+}
+
+function renderCell(cell) {
+  if (cell && typeof cell === 'object' && Object.hasOwn(cell, '__html')) return cell.__html;
+  return escapeHtml(cell ?? '');
+}
+
+function percent(part, total) {
+  if (!Number(total)) return 0;
+  return Math.round((Number(part || 0) / Number(total)) * 100);
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Campo_Grande',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date(value));
+}
+
+function seconds(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
+  const total = Math.max(0, Number(value));
+  if (total < 60) return `${Math.round(total)}s`;
+  const mins = Math.floor(total / 60);
+  const secs = Math.round(total % 60);
+  return secs ? `${mins}m ${secs}s` : `${mins}m`;
+}
+
+function minutes(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
+  const total = Number(value);
+  if (total < 60) return `${Math.round(total)} min`;
+  const hours = Math.round(total / 60);
+  if (hours < 48) return `${hours} h`;
+  return `${Math.round(hours / 24)} dias`;
+}

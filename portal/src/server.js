@@ -7,12 +7,22 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 import { redis } from './redis.js';
-import { audit, createWifiSession, findStore, markAuthorized, markOtpValidated, updateRegistration } from './db.js';
+import {
+  audit,
+  createWifiSession,
+  findStore,
+  getAdminDashboard,
+  getAdminPhoneDetails,
+  markAuthorized,
+  markOtpValidated,
+  updateRegistration
+} from './db.js';
 import { normalizeBrazilPhone } from './phone.js';
 import { createOtp, validateOtp } from './otp.js';
 import { sendOtpWebhook, sendPostLoginWebhook } from './n8n.js';
 import { authorizeGuest } from './unifi.js';
 import { doneView, googleReviewView, lgpdView, otpView } from './views.js';
+import { adminDashboardView, adminPhoneView, adminSessionsView } from './adminViews.js';
 import { logger } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -42,9 +52,62 @@ function requireSession(req, res, next) {
   next();
 }
 
+function requireAdmin(req, res, next) {
+  if (!config.admin.username || !config.admin.password) {
+    return res.status(503).send('Admin portal is not configured.');
+  }
+
+  const header = req.headers.authorization || '';
+  const [scheme, encoded] = header.split(' ');
+  if (scheme !== 'Basic' || !encoded) return requestAdminAuth(res);
+
+  const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+  const separator = decoded.indexOf(':');
+  const username = decoded.slice(0, separator);
+  const password = decoded.slice(separator + 1);
+
+  if (username !== config.admin.username || password !== config.admin.password) {
+    return requestAdminAuth(res);
+  }
+  next();
+}
+
+function requestAdminAuth(res) {
+  res.set('WWW-Authenticate', 'Basic realm="Hotspot Soldamaq"');
+  return res.status(401).send('Authentication required.');
+}
+
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
 app.get('/', (req, res) => res.redirect(`/portal${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`));
+
+app.get('/admin', requireAdmin, async (_req, res, next) => {
+  try {
+    const data = await getAdminDashboard();
+    res.send(adminDashboardView({ data }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/admin/sessions', requireAdmin, async (_req, res, next) => {
+  try {
+    const data = await getAdminDashboard();
+    res.send(adminSessionsView({ sessions: data.recentSessions }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/admin/phones/:telefone', requireAdmin, async (req, res, next) => {
+  try {
+    const telefone = String(req.params.telefone || '').replace(/\D/g, '');
+    const data = await getAdminPhoneDetails(telefone);
+    res.send(adminPhoneView({ ...data, telefone }));
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.get(['/portal', '/guest/s/:site'], async (req, res, next) => {
   try {
