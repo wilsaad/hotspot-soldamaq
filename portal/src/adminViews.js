@@ -132,24 +132,59 @@ export function adminStoresView({ stores }) {
           <h1>Lojas Soldamaq</h1>
           <p>Cadastro usado para identificar site UniFi, loja, link de avaliacao e dados de recorrencia.</p>
         </div>
+        <a class="button" href="/admin/stores/new">Nova loja</a>
       </section>
       <article class="panel">
         ${table({
-          headers: ['ID', 'Codigo', 'Loja', 'Site UniFi', 'Cidade', 'Endereco', 'Telefone', 'Gerente', 'Sessoes', 'Telefones', 'Review'],
+          headers: ['ID', 'Codigo', 'Loja', 'Site UniFi', 'Cidade', 'Telefone', 'Gerente', 'Sessoes', 'Telefones', 'Review', 'Acoes'],
           rows: stores.map((row) => [
             row.id,
             row.code || '',
             row.name,
             row.unifi_site,
             `${row.city || ''}/${row.state || ''}`,
-            row.address || '',
             row.phone || '',
             row.manager || '',
             row.sessions,
             row.unique_phones,
-            row.google_review_url ? raw('<span class="badge ok">Configurado</span>') : raw('<span class="badge muted">Pendente</span>')
+            row.google_review_url ? raw('<span class="badge ok">Configurado</span>') : raw('<span class="badge muted">Pendente</span>'),
+            raw(`<a href="/admin/stores/${row.id}/edit">Editar</a>`)
           ])
         })}
+      </article>`
+  });
+}
+
+export function adminStoreFormView({ store = {}, action, title, error = '' }) {
+  return adminLayout({
+    title,
+    body: `<section class="hero compact">
+        <div>
+          <h1>${escapeHtml(title)}</h1>
+          <p>Atualize os dados usados pelo portal, dashboard e redirecionamento de avaliacao.</p>
+        </div>
+      </section>
+      <article class="panel">
+        ${error ? `<p class="error">${escapeHtml(error)}</p>` : ''}
+        <form method="post" action="${escapeHtml(action)}" class="admin-form">
+          ${input('Codigo', 'code', store.code, 'Ex: 13MAIO')}
+          ${input('Nome da loja', 'name', store.name, 'Soldamaq - Unidade', true)}
+          ${input('Site UniFi', 'unifi_site', store.unifi_site, 'site-id-da-controladora', true)}
+          ${input('Endereco', 'address', store.address, 'Rua, numero - bairro')}
+          ${input('Cidade', 'city', store.city, 'Campo Grande')}
+          ${input('Estado', 'state', store.state || 'MS', 'MS')}
+          ${input('Telefone', 'phone', store.phone, '(67) 0000-0000')}
+          ${input('Gerente', 'manager', store.manager, 'Nome do responsavel')}
+          ${input('Google Place ID', 'google_place_id', store.google_place_id, 'Opcional')}
+          ${input('URL de avaliacao Google', 'google_review_url', store.google_review_url, 'https://www.google.com/...')}
+          <label>AP aliases
+            <textarea name="ap_aliases" rows="4" placeholder="Um AP por linha ou separados por virgula">${escapeHtml((store.ap_aliases || []).join('\n'))}</textarea>
+          </label>
+          <div class="form-actions">
+            <a class="button secondary" href="/admin/stores">Cancelar</a>
+            <button class="button" type="submit">Salvar loja</button>
+          </div>
+        </form>
       </article>`
   });
 }
@@ -193,6 +228,12 @@ export function adminPhoneView({ profile, sessions, telefone }) {
         })}
       </article>`
   });
+}
+
+function input(label, name, value, placeholder = '', required = false) {
+  return `<label>${escapeHtml(label)}
+    <input name="${escapeHtml(name)}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder)}" ${required ? 'required' : ''}>
+  </label>`;
 }
 
 function sessionsTable(rows) {

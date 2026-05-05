@@ -9,13 +9,16 @@ import { config } from './config.js';
 import { redis } from './redis.js';
 import {
   audit,
+  createAdminStore,
   createWifiSession,
   findStore,
   getAdminDashboard,
   getAdminPhoneDetails,
+  getAdminStore,
   getAdminStores,
   markAuthorized,
   markOtpValidated,
+  updateAdminStore,
   updateRegistration
 } from './db.js';
 import { normalizeBrazilPhone } from './phone.js';
@@ -23,7 +26,7 @@ import { createOtp, validateOtp } from './otp.js';
 import { sendOtpWebhook, sendPostLoginWebhook } from './n8n.js';
 import { authorizeGuest } from './unifi.js';
 import { doneView, googleReviewView, lgpdView, otpView } from './views.js';
-import { adminDashboardView, adminPhoneView, adminSessionsView, adminStoresView } from './adminViews.js';
+import { adminDashboardView, adminPhoneView, adminSessionsView, adminStoreFormView, adminStoresView } from './adminViews.js';
 import { logger } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -105,6 +108,64 @@ app.get('/admin/stores', requireAdmin, async (_req, res, next) => {
     const stores = await getAdminStores();
     res.send(adminStoresView({ stores }));
   } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/admin/stores/new', requireAdmin, (_req, res) => {
+  res.send(adminStoreFormView({
+    title: 'Nova loja',
+    action: '/admin/stores'
+  }));
+});
+
+app.post('/admin/stores', requireAdmin, async (req, res, next) => {
+  try {
+    await createAdminStore(req.body);
+    res.redirect('/admin/stores');
+  } catch (error) {
+    if (error.status === 400 || error.code === '23505') {
+      const message = error.code === '23505' ? 'Codigo ou site UniFi ja cadastrado.' : error.message;
+      return res.status(400).send(adminStoreFormView({
+        title: 'Nova loja',
+        action: '/admin/stores',
+        store: req.body,
+        error: message
+      }));
+    }
+    next(error);
+  }
+});
+
+app.get('/admin/stores/:id/edit', requireAdmin, async (req, res, next) => {
+  try {
+    const store = await getAdminStore(req.params.id);
+    if (!store) return res.status(404).send('Loja nao encontrada.');
+    res.send(adminStoreFormView({
+      title: 'Editar loja',
+      action: `/admin/stores/${store.id}`,
+      store
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/admin/stores/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const store = await updateAdminStore(req.params.id, req.body);
+    if (!store) return res.status(404).send('Loja nao encontrada.');
+    res.redirect('/admin/stores');
+  } catch (error) {
+    if (error.status === 400 || error.code === '23505') {
+      const message = error.code === '23505' ? 'Codigo ou site UniFi ja cadastrado.' : error.message;
+      return res.status(400).send(adminStoreFormView({
+        title: 'Editar loja',
+        action: `/admin/stores/${req.params.id}`,
+        store: { ...req.body, id: req.params.id },
+        error: message
+      }));
+    }
     next(error);
   }
 });

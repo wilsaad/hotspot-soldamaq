@@ -214,6 +214,48 @@ export async function getAdminStores() {
   return result.rows;
 }
 
+export async function getAdminStore(id) {
+  const result = await pool.query('select * from stores where id = $1 limit 1', [id]);
+  return result.rows[0] || null;
+}
+
+export async function createAdminStore(store) {
+  const values = normalizeStoreValues(store);
+  const result = await pool.query(
+    `insert into stores (
+      code, name, unifi_site, address, city, state, phone, manager,
+      google_place_id, google_review_url, ap_aliases
+    )
+    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    returning *`,
+    values
+  );
+  return result.rows[0];
+}
+
+export async function updateAdminStore(id, store) {
+  const values = normalizeStoreValues(store);
+  const result = await pool.query(
+    `update stores
+     set
+      code = $2,
+      name = $3,
+      unifi_site = $4,
+      address = $5,
+      city = $6,
+      state = $7,
+      phone = $8,
+      manager = $9,
+      google_place_id = $10,
+      google_review_url = $11,
+      ap_aliases = $12
+     where id = $1
+     returning *`,
+    [id, ...values]
+  );
+  return result.rows[0] || null;
+}
+
 export async function getAdminPhoneDetails(telefone) {
   const [profile, sessions] = await Promise.all([
     pool.query(`
@@ -263,4 +305,40 @@ export async function getAdminPhoneDetails(telefone) {
     profile: profile.rows[0] || null,
     sessions: sessions.rows
   };
+}
+
+function normalizeStoreValues(store) {
+  const apAliases = String(store.ap_aliases || '')
+    .split(/[\n,]/)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+  return [
+    cleanOptional(store.code)?.toUpperCase() || null,
+    cleanRequired(store.name, 'Nome da loja'),
+    cleanRequired(store.unifi_site, 'Site UniFi').toLowerCase(),
+    cleanOptional(store.address),
+    cleanOptional(store.city),
+    cleanOptional(store.state)?.toUpperCase() || 'MS',
+    cleanOptional(store.phone),
+    cleanOptional(store.manager),
+    cleanOptional(store.google_place_id),
+    cleanOptional(store.google_review_url),
+    apAliases
+  ];
+}
+
+function cleanRequired(value, label) {
+  const text = cleanOptional(value);
+  if (!text) {
+    const error = new Error(`${label} e obrigatorio.`);
+    error.status = 400;
+    throw error;
+  }
+  return text;
+}
+
+function cleanOptional(value) {
+  const text = String(value || '').trim().replace(/\s+/g, ' ');
+  return text || null;
 }
