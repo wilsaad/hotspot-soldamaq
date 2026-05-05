@@ -188,6 +188,32 @@ export async function getAdminDashboard() {
   };
 }
 
+export async function getAdminStores() {
+  const result = await pool.query(`
+    select
+      st.id,
+      st.code,
+      st.name,
+      st.unifi_site,
+      st.address,
+      st.city,
+      st.state,
+      st.phone,
+      st.manager,
+      st.google_place_id,
+      st.google_review_url,
+      coalesce(array_length(st.ap_aliases, 1), 0)::int as ap_alias_count,
+      count(ws.*)::int as sessions,
+      count(distinct nullif(ws.telefone, ''))::int as unique_phones,
+      max(ws.created_at) as last_seen
+    from stores st
+    left join wifi_sessions ws on ws.store_id = st.id
+    group by st.id
+    order by st.id
+  `);
+  return result.rows;
+}
+
 export async function getAdminPhoneDetails(telefone) {
   const [profile, sessions] = await Promise.all([
     pool.query(`

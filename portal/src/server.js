@@ -13,6 +13,7 @@ import {
   findStore,
   getAdminDashboard,
   getAdminPhoneDetails,
+  getAdminStores,
   markAuthorized,
   markOtpValidated,
   updateRegistration
@@ -22,7 +23,7 @@ import { createOtp, validateOtp } from './otp.js';
 import { sendOtpWebhook, sendPostLoginWebhook } from './n8n.js';
 import { authorizeGuest } from './unifi.js';
 import { doneView, googleReviewView, lgpdView, otpView } from './views.js';
-import { adminDashboardView, adminPhoneView, adminSessionsView } from './adminViews.js';
+import { adminDashboardView, adminPhoneView, adminSessionsView, adminStoresView } from './adminViews.js';
 import { logger } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -94,6 +95,15 @@ app.get('/admin/sessions', requireAdmin, async (_req, res, next) => {
   try {
     const data = await getAdminDashboard();
     res.send(adminSessionsView({ sessions: data.recentSessions }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/admin/stores', requireAdmin, async (_req, res, next) => {
+  try {
+    const stores = await getAdminStores();
+    res.send(adminStoresView({ stores }));
   } catch (error) {
     next(error);
   }

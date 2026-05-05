@@ -19,6 +19,7 @@ function adminLayout({ title, body }) {
     </div>
     <nav>
       <a href="/admin">Dashboard</a>
+      <a href="/admin/stores">Lojas</a>
       <a href="/admin/sessions">Sessoes</a>
     </nav>
   </header>
@@ -120,6 +121,36 @@ export function adminSessionsView({ sessions }) {
         </div>
       </section>
       <article class="panel">${sessionsTable(sessions)}</article>`
+  });
+}
+
+export function adminStoresView({ stores }) {
+  return adminLayout({
+    title: 'Lojas Soldamaq',
+    body: `<section class="hero compact">
+        <div>
+          <h1>Lojas Soldamaq</h1>
+          <p>Cadastro usado para identificar site UniFi, loja, link de avaliacao e dados de recorrencia.</p>
+        </div>
+      </section>
+      <article class="panel">
+        ${table({
+          headers: ['ID', 'Codigo', 'Loja', 'Site UniFi', 'Cidade', 'Endereco', 'Telefone', 'Gerente', 'Sessoes', 'Telefones', 'Review'],
+          rows: stores.map((row) => [
+            row.id,
+            row.code || '',
+            row.name,
+            row.unifi_site,
+            `${row.city || ''}/${row.state || ''}`,
+            row.address || '',
+            row.phone || '',
+            row.manager || '',
+            row.sessions,
+            row.unique_phones,
+            row.google_review_url ? raw('<span class="badge ok">Configurado</span>') : raw('<span class="badge muted">Pendente</span>')
+          ])
+        })}
+      </article>`
   });
 }
 
