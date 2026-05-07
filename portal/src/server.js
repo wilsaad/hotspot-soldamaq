@@ -26,7 +26,7 @@ import { normalizeBrazilPhone } from './phone.js';
 import { createOtp, createValidationLinkToken, validateOtp } from './otp.js';
 import { sendOtpWebhook, sendPostLoginWebhook } from './n8n.js';
 import { authorizeGuest } from './unifi.js';
-import { doneView, googleReviewView, lgpdView, otpView, temporaryAccessView, validationErrorView } from './views.js';
+import { doneView, googleReviewView, lgpdView, otpView, temporaryAccessView, validationConfirmView, validationErrorView } from './views.js';
 import { adminDashboardView, adminPhoneView, adminSessionsView, adminStoreFormView, adminStoresView } from './adminViews.js';
 import { logger } from './logger.js';
 
@@ -310,6 +310,22 @@ app.post('/validate-otp', requireSession, async (req, res, next) => {
 });
 
 app.get('/whatsapp/validate/:token', async (req, res, next) => {
+  try {
+    const token = String(req.params.token || '').trim();
+    const row = await findValidationToken(token);
+    if (!row) return res.status(400).send(validationErrorView({ error: 'Link expirado ou ja utilizado.' }));
+
+    res.send(validationConfirmView({
+      token,
+      telefone: row.telefone,
+      extendedMinutes: config.extendedGuestMinutes
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/whatsapp/validate/:token', async (req, res, next) => {
   try {
     const token = String(req.params.token || '').trim();
     const row = await findValidationToken(token);

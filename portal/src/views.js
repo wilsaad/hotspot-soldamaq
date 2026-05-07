@@ -89,6 +89,18 @@ export function validationErrorView({ error }) {
   });
 }
 
+export function validationConfirmView({ token, telefone, extendedMinutes }) {
+  return layout({
+    title: 'Validar WhatsApp',
+    step: 4,
+    body: `<h1>Confirmar WhatsApp</h1>
+      <p>Toque no botao abaixo para confirmar seu telefone ${escapeHtml(displayPhone(telefone))} e estender seu acesso por mais ${escapeHtml(extendedMinutes)} minutos.</p>
+      <form method="post" action="/whatsapp/validate/${encodeURIComponent(token)}" class="form">
+        <button type="submit">Validar WhatsApp</button>
+      </form>`
+  });
+}
+
 export function googleReviewView({ store, error }) {
   const reviewUrl = store?.google_review_url
     || (store?.google_place_id
