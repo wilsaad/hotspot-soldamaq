@@ -7,12 +7,39 @@ export function generateOtp() {
   return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 }
 
+export function generateValidationToken() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+export async function createValidationLinkToken({ telefone, sessionId }) {
+  await enforceSendRate({ telefone, prefix: 'validation' });
+  const token = generateValidationToken();
+  const expiresAt = new Date(Date.now() + config.validationLinkTtlSeconds * 1000);
+  await saveOtp({ telefone, codigo: token, expiresAt, sessionId });
+  return { token, expiresAt };
+}
+
 export async function createOtp({ telefone, sessionId }) {
+  await enforceSendRate({ telefone, prefix: 'otp' });
+  const codigo = generateOtp();
+  const expiresAt = new Date(Date.now() + config.otpTtlSeconds * 1000);
+  const key = `otp:${telefone}`;
+  await redis.set(
+    key,
+    JSON.stringify({ codigo, sessionId, attempts: 0 }),
+    'EX',
+    config.otpTtlSeconds
+  );
+  await saveOtp({ telefone, codigo, expiresAt, sessionId });
+  return { codigo, expiresAt };
+}
+
+async function enforceSendRate({ telefone, prefix }) {
   const resendKey = `otp:resend:${telefone}`;
-  const rateKey = `otp:rate:${telefone}`;
+  const rateKey = `${prefix}:rate:${telefone}`;
   const activeResend = await redis.ttl(resendKey);
   if (activeResend > 0) {
-    const error = new Error(`Aguarde ${activeResend}s para reenviar o codigo.`);
+    const error = new Error(`Aguarde ${activeResend}s para reenviar a validacao.`);
     error.status = 429;
     throw error;
   }
@@ -25,18 +52,7 @@ export async function createOtp({ telefone, sessionId }) {
     throw error;
   }
 
-  const codigo = generateOtp();
-  const expiresAt = new Date(Date.now() + config.otpTtlSeconds * 1000);
-  const key = `otp:${telefone}`;
-  await redis.set(
-    key,
-    JSON.stringify({ codigo, sessionId, attempts: 0 }),
-    'EX',
-    config.otpTtlSeconds
-  );
   await redis.set(resendKey, '1', 'EX', config.otpResendSeconds);
-  await saveOtp({ telefone, codigo, expiresAt, sessionId });
-  return { codigo, expiresAt };
 }
 
 export async function validateOtp({ telefone, sessionId, codigo }) {

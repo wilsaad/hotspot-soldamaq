@@ -29,7 +29,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"number\":\"{{$json.body.telefone}}\",\"text\":\"Seu codigo e: {{$json.body.codigo}}\"}"
+        "jsonBody": "={\"number\":\"{{$json.body.telefone}}\",\"text\":\"{{$json.body.mensagem || ('Seu codigo e: ' + $json.body.codigo)}}\"}"
       },
       "id": "EvolutionSendText",
       "name": "Evolution - Send Text",

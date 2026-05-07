@@ -68,6 +68,27 @@ export function otpView({ telefone, error, sent = false }) {
   });
 }
 
+export function temporaryAccessView({ telefone, minutes, extendedMinutes }) {
+  return layout({
+    title: 'Internet liberada',
+    step: 3,
+    body: `<h1>Internet liberada por ${escapeHtml(minutes)} minutos</h1>
+      <p>Enviamos um link para ${escapeHtml(displayPhone(telefone))} no WhatsApp.</p>
+      <p>Para estender seu acesso por mais ${escapeHtml(extendedMinutes)} minutos, clique no link recebido no WhatsApp.</p>
+      <a class="button" href="http://neverssl.com/">Abrir navegador</a>`
+  });
+}
+
+export function validationErrorView({ error }) {
+  return layout({
+    title: 'Validar WhatsApp',
+    step: 4,
+    error,
+    body: `<h1>Link invalido</h1>
+      <p>O link de validacao expirou ou ja foi utilizado. Conecte-se novamente ao WiFi para receber um novo link.</p>`
+  });
+}
+
 export function googleReviewView({ store, error }) {
   const reviewUrl = store?.google_review_url
     || (store?.google_place_id

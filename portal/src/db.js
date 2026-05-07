@@ -58,6 +58,32 @@ export async function markOtpValidated({ sessionId, telefone, codigo }) {
   return result.rows[0];
 }
 
+export async function findValidationToken(token) {
+  const result = await pool.query(
+    `select
+       oc.*,
+       ws.mac,
+       ws.ap,
+       ws.ssid,
+       ws.unifi_site,
+       ws.nome,
+       ws.store_id,
+       st.name as store_name,
+       st.google_place_id,
+       st.google_review_url
+     from otp_codes oc
+     join wifi_sessions ws on ws.id = oc.wifi_session_id
+     left join stores st on st.id = ws.store_id
+     where oc.codigo = $1
+       and oc.validado = false
+       and oc.expiracao > now()
+     order by oc.created_at desc
+     limit 1`,
+    [token]
+  );
+  return result.rows[0] || null;
+}
+
 export async function markAuthorized({ sessionId }) {
   const result = await pool.query(
     `update wifi_sessions

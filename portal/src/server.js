@@ -11,6 +11,7 @@ import {
   audit,
   createAdminStore,
   createWifiSession,
+  findValidationToken,
   findStore,
   getAdminDashboard,
   getAdminPhoneDetails,
@@ -22,10 +23,10 @@ import {
   updateRegistration
 } from './db.js';
 import { normalizeBrazilPhone } from './phone.js';
-import { createOtp, validateOtp } from './otp.js';
+import { createOtp, createValidationLinkToken, validateOtp } from './otp.js';
 import { sendOtpWebhook, sendPostLoginWebhook } from './n8n.js';
 import { authorizeGuest } from './unifi.js';
-import { doneView, googleReviewView, lgpdView, otpView } from './views.js';
+import { doneView, googleReviewView, lgpdView, otpView, temporaryAccessView, validationErrorView } from './views.js';
 import { adminDashboardView, adminPhoneView, adminSessionsView, adminStoreFormView, adminStoresView } from './adminViews.js';
 import { logger } from './logger.js';
 
@@ -226,16 +227,24 @@ app.post('/register', requireSession, async (req, res, next) => {
     req.session.telefone = telefone;
     await updateRegistration({ sessionId: req.session.wifiSessionId, nome, telefone, lgpdAccepted });
     await audit({ event: 'register', sessionId: req.session.wifiSessionId, telefone, mac: req.session.mac });
-    return sendOtp(req, res, next);
+    return sendValidationLink(req, res, next);
   } catch (error) {
     next(error);
   }
 });
 
-async function sendOtp(req, res, next) {
+function publicUrl(req, path) {
+  return `${req.protocol}://${req.get('host')}${path}`;
+}
+
+async function sendValidationLink(req, res, next) {
   try {
     if (!req.session.telefone) return res.redirect('/portal');
-    const otp = await createOtp({ telefone: req.session.telefone, sessionId: req.session.wifiSessionId });
+    const token = await createValidationLinkToken({ telefone: req.session.telefone, sessionId: req.session.wifiSessionId });
+    const validationPath = `/whatsapp/validate/${encodeURIComponent(token.token)}`;
+    const validationUrl = publicUrl(req, validationPath);
+
+    const mensagem = `Soldamaq: sua internet foi liberada por ${config.tempGuestMinutes} minutos. Para estender por mais ${config.extendedGuestMinutes} minutos, valide seu WhatsApp neste link: ${validationUrl}`;
     await sendOtpWebhook({
       nome: req.session.nome,
       telefone: req.session.telefone,
@@ -244,20 +253,41 @@ async function sendOtp(req, res, next) {
       ssid: req.session.ssid,
       site: req.session.site,
       store_id: req.session.store?.id,
-      codigo: otp.codigo,
-      expiracao: otp.expiresAt.toISOString(),
-      evento: 'send_otp'
+      codigo: token.token,
+      validation_url: validationUrl,
+      mensagem,
+      expiracao: token.expiresAt.toISOString(),
+      evento: 'send_validation_link'
     });
-    await audit({ event: 'send_otp', sessionId: req.session.wifiSessionId, telefone: req.session.telefone, mac: req.session.mac });
-    res.send(otpView({ telefone: req.session.telefone, sent: true }));
+    await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.tempGuestMinutes });
+    await markAuthorized({ sessionId: req.session.wifiSessionId });
+    await audit({
+      event: 'temporary_authorize',
+      sessionId: req.session.wifiSessionId,
+      telefone: req.session.telefone,
+      mac: req.session.mac,
+      payload: { minutes: config.tempGuestMinutes }
+    });
+    await audit({
+      event: 'send_validation_link',
+      sessionId: req.session.wifiSessionId,
+      telefone: req.session.telefone,
+      mac: req.session.mac,
+      payload: { expiresAt: token.expiresAt.toISOString() }
+    });
+    res.send(temporaryAccessView({
+      telefone: req.session.telefone,
+      minutes: config.tempGuestMinutes,
+      extendedMinutes: config.extendedGuestMinutes
+    }));
   } catch (error) {
     if (error.status === 429) return res.status(429).send(otpView({ telefone: req.session.telefone, error: error.message }));
     next(error);
   }
 }
 
-app.get('/send-otp', requireSession, sendOtp);
-app.post('/send-otp', requireSession, sendOtp);
+app.get('/send-otp', requireSession, sendValidationLink);
+app.post('/send-otp', requireSession, sendValidationLink);
 
 app.get('/otp', requireSession, (req, res) => {
   res.send(otpView({ telefone: req.session.telefone }));
@@ -273,6 +303,48 @@ app.post('/validate-otp', requireSession, async (req, res, next) => {
     req.session.otpValidated = true;
     await audit({ event: 'validate_otp', sessionId: req.session.wifiSessionId, telefone: req.session.telefone, mac: req.session.mac });
     res.send(googleReviewView({ store: req.session.store }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/whatsapp/validate/:token', async (req, res, next) => {
+  try {
+    const token = String(req.params.token || '').trim();
+    const row = await findValidationToken(token);
+    if (!row) return res.status(400).send(validationErrorView({ error: 'Link expirado ou ja utilizado.' }));
+
+    await authorizeGuest({ site: row.unifi_site, mac: row.mac, minutes: config.extendedGuestMinutes });
+    await markOtpValidated({ sessionId: row.wifi_session_id, telefone: row.telefone, codigo: token });
+    await markAuthorized({ sessionId: row.wifi_session_id });
+    await audit({
+      event: 'validate_whatsapp_link',
+      sessionId: row.wifi_session_id,
+      telefone: row.telefone,
+      mac: row.mac,
+      payload: { minutes: config.extendedGuestMinutes }
+    });
+
+    const store = {
+      id: row.store_id,
+      name: row.store_name,
+      google_place_id: row.google_place_id,
+      google_review_url: row.google_review_url
+    };
+
+    await sendPostLoginWebhook({
+      nome: row.nome,
+      telefone: row.telefone,
+      mac: row.mac,
+      ap: row.ap,
+      site: row.unifi_site,
+      store_id: row.store_id,
+      google_place_id: row.google_place_id,
+      google_review_url: row.google_review_url,
+      evento: 'post_login'
+    });
+
+    res.send(doneView({ store }));
   } catch (error) {
     next(error);
   }
