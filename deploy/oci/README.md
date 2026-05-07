@@ -62,7 +62,7 @@ curl -k "https://automation.soldamaq.com.br/portal?mac=aa:bb:cc:dd:ee:ff&ap=ap01
 O portal chama:
 
 ```text
-http://automation_n8n:5678/webhook/hotspot-send-otp
+http://automation_n8n:5678/webhook/hotspotSendOtp01/webhook/hotspot-send-otp
 http://automation_n8n:5678/webhook/hotspot-post-login
 ```
 
