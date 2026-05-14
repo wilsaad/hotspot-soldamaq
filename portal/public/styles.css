@@ -1,15 +1,15 @@
 :root {
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
-  --ink: #123f51;
+  --ink: #133c49;
   --muted: #48616a;
-  --line: #f6c726;
-  --brand: #f6c726;
-  --brand-dark: #dda648;
-  --green: #038a46;
-  --green-dark: #006f37;
-  --navy: #154051;
-  --navy-deep: #0a3045;
+  --line: #fdda00;
+  --brand: #fdda00;
+  --brand-dark: #e8c600;
+  --green: #19672e;
+  --green-dark: #145326;
+  --navy: #133c49;
+  --black: #1d1d1b;
   --danger: #b42318;
   --ok: #067647;
   --bg: #038a46;
@@ -22,9 +22,9 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    linear-gradient(135deg, rgba(246, 199, 38, .95) 0 13%, transparent 13% 100%),
-    radial-gradient(circle at 12px 12px, rgba(10, 48, 69, .18) 0 2px, transparent 2px 18px),
-    linear-gradient(145deg, #039149 0%, #007a3c 52%, #006734 100%);
+    linear-gradient(135deg, rgba(253, 218, 0, .98) 0 13%, transparent 13% 100%),
+    radial-gradient(circle at 12px 12px, rgba(19, 60, 73, .18) 0 2px, transparent 2px 18px),
+    linear-gradient(145deg, #19672e 0%, #17602b 52%, #145326 100%);
   background-size: auto, 30px 30px, auto;
   color: var(--ink);
 }
@@ -42,7 +42,7 @@ body {
   border: 3px solid var(--brand);
   border-radius: 8px;
   padding: 24px;
-  box-shadow: 0 18px 42px rgba(4, 35, 44, .32);
+  box-shadow: 0 18px 42px rgba(29, 29, 27, .32);
 }
 
 .brand {
@@ -133,7 +133,7 @@ button, .button {
   border: 0;
   border-radius: 6px;
   background: var(--brand);
-  color: var(--navy-deep);
+  color: var(--black);
   font: inherit;
   font-weight: 700;
   display: inline-grid;
