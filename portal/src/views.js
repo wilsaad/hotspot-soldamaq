@@ -48,14 +48,23 @@ export function lgpdView({ store, error }) {
   });
 }
 
-export function linkRequiredView({ telefone, error }) {
+export function otpView({ telefone, error, sent = false }) {
   return layout({
     title: 'Validar WhatsApp',
     step: 3,
     error,
-    body: `<h1>Valide pelo WhatsApp</h1>
-      <p>${telefone ? `Enviamos um link para ${escapeHtml(displayPhone(telefone))}.` : 'O acesso agora e validado por link no WhatsApp.'}</p>
-      <p>Abra o WhatsApp e toque no link recebido para estender seu acesso. Se o link expirou, conecte-se novamente ao WiFi para receber outro.</p>`
+    body: `<h1>Digite o codigo</h1>
+      <p>Enviamos um codigo de 6 digitos para ${escapeHtml(displayPhone(telefone))}.</p>
+      ${sent ? '<p class="ok">Codigo enviado.</p>' : ''}
+      <form method="post" action="/validate-otp" class="form">
+        <label>Codigo
+          <input name="codigo" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+        </label>
+        <button type="submit">Validar</button>
+      </form>
+      <form method="post" action="/send-otp" class="secondary-form">
+        <button class="secondary" type="submit">Reenviar codigo</button>
+      </form>`
   });
 }
 
@@ -88,6 +97,24 @@ export function validationConfirmView({ token, telefone, extendedMinutes }) {
       <p>Toque no botao abaixo para confirmar seu telefone ${escapeHtml(displayPhone(telefone))} e estender seu acesso por mais ${escapeHtml(extendedMinutes)} minutos.</p>
       <form method="post" action="/whatsapp/validate/${encodeURIComponent(token)}" class="form">
         <button type="submit">Validar WhatsApp</button>
+      </form>`
+  });
+}
+
+export function googleReviewView({ store, error }) {
+  const reviewUrl = store?.google_review_url
+    || (store?.google_place_id
+    ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(store.google_place_id)}`
+    : '');
+  return layout({
+    title: 'Avalie a loja',
+    step: 4,
+    error,
+    body: `<h1>Obrigado pela visita</h1>
+      <p>Sua avaliacao ajuda nossa equipe. Ela e opcional: o WiFi sera liberado mesmo se voce preferir continuar agora.</p>
+      ${reviewUrl ? `<a class="button secondary" target="_blank" rel="noopener" href="${reviewUrl}">Avaliar no Google</a>` : ''}
+      <form method="post" action="/authorize" class="form">
+        <button type="submit">Liberar internet</button>
       </form>`
   });
 }
