@@ -244,8 +244,18 @@ async function sendValidationLink(req, res, next) {
     const validationPath = `/whatsapp/validate/${encodeURIComponent(token.token)}`;
     const validationUrl = publicUrl(req, validationPath);
 
+    await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.tempGuestMinutes });
+    await markAuthorized({ sessionId: req.session.wifiSessionId });
+    await audit({
+      event: 'temporary_authorize',
+      sessionId: req.session.wifiSessionId,
+      telefone: req.session.telefone,
+      mac: req.session.mac,
+      payload: { minutes: config.tempGuestMinutes }
+    });
+
     const mensagem = `Soldamaq: sua internet foi liberada por ${config.tempGuestMinutes} minutos. Para estender por mais ${config.extendedGuestMinutes} minutos, valide seu WhatsApp neste link: ${validationUrl}`;
-    await sendOtpWebhook({
+    const webhookPayload = {
       nome: req.session.nome,
       telefone: req.session.telefone,
       mac: req.session.mac,
@@ -259,23 +269,28 @@ async function sendValidationLink(req, res, next) {
       mensagem,
       expiracao: token.expiresAt.toISOString(),
       evento: 'send_validation_link'
-    });
-    await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.tempGuestMinutes });
-    await markAuthorized({ sessionId: req.session.wifiSessionId });
-    await audit({
-      event: 'temporary_authorize',
-      sessionId: req.session.wifiSessionId,
-      telefone: req.session.telefone,
-      mac: req.session.mac,
-      payload: { minutes: config.tempGuestMinutes }
-    });
-    await audit({
-      event: 'send_validation_link',
-      sessionId: req.session.wifiSessionId,
-      telefone: req.session.telefone,
-      mac: req.session.mac,
-      payload: { expiresAt: token.expiresAt.toISOString() }
-    });
+    };
+
+    try {
+      await sendOtpWebhook(webhookPayload);
+      await audit({
+        event: 'send_validation_link',
+        sessionId: req.session.wifiSessionId,
+        telefone: req.session.telefone,
+        mac: req.session.mac,
+        payload: { expiresAt: token.expiresAt.toISOString() }
+      });
+    } catch (webhookError) {
+      logger.warn({ err: webhookError, sessionId: req.session.wifiSessionId }, 'validation link webhook failed after temporary authorization');
+      await audit({
+        event: 'send_validation_link_failed',
+        sessionId: req.session.wifiSessionId,
+        telefone: req.session.telefone,
+        mac: req.session.mac,
+        payload: { message: webhookError.message, expiresAt: token.expiresAt.toISOString() }
+      });
+    }
+
     res.send(temporaryAccessView({
       telefone: req.session.telefone,
       minutes: config.tempGuestMinutes,
