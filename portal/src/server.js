@@ -23,10 +23,10 @@ import {
   updateRegistration
 } from './db.js';
 import { normalizeBrazilPhone } from './phone.js';
-import { createOtp, createValidationLinkToken, validateOtp } from './otp.js';
+import { createValidationLinkToken } from './otp.js';
 import { sendOtpWebhook, sendPostLoginWebhook } from './n8n.js';
 import { authorizeGuest } from './unifi.js';
-import { doneView, googleReviewView, lgpdView, otpView, temporaryAccessView, validationConfirmView, validationErrorView } from './views.js';
+import { doneView, lgpdView, otpView, temporaryAccessView, validationConfirmView, validationErrorView } from './views.js';
 import { adminDashboardView, adminPhoneView, adminSessionsView, adminStoreFormView, adminStoresView } from './adminViews.js';
 import { logger } from './logger.js';
 
@@ -296,14 +296,10 @@ app.get('/otp', requireSession, (req, res) => {
 
 app.post('/validate-otp', requireSession, async (req, res, next) => {
   try {
-    const codigo = String(req.body.codigo || '').trim();
-    const result = await validateOtp({ telefone: req.session.telefone, sessionId: req.session.wifiSessionId, codigo });
-    if (!result.ok) return res.status(400).send(otpView({ telefone: req.session.telefone, error: result.reason }));
-
-    await markOtpValidated({ sessionId: req.session.wifiSessionId, telefone: req.session.telefone, codigo });
-    req.session.otpValidated = true;
-    await audit({ event: 'validate_otp', sessionId: req.session.wifiSessionId, telefone: req.session.telefone, mac: req.session.mac });
-    res.send(googleReviewView({ store: req.session.store }));
+    res.status(410).send(otpView({
+      telefone: req.session.telefone,
+      error: 'Use o link enviado no WhatsApp para validar seu acesso.'
+    }));
   } catch (error) {
     next(error);
   }
@@ -369,7 +365,7 @@ app.post('/whatsapp/validate/:token', async (req, res, next) => {
 
 app.post('/authorize', requireSession, async (req, res, next) => {
   try {
-    if (!req.session.otpValidated) return res.status(403).send(otpView({ telefone: req.session.telefone, error: 'Valide o codigo antes de liberar.' }));
+    if (!req.session.otpValidated) return res.status(403).send(otpView({ telefone: req.session.telefone, error: 'Use o link enviado no WhatsApp para validar seu acesso.' }));
 
     await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.guestMinutes });
     await markAuthorized({ sessionId: req.session.wifiSessionId });
