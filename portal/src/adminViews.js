@@ -14,7 +14,7 @@ function adminLayout({ title, body }) {
 <body>
   <header class="topbar">
     <div>
-      <strong>SOLDAMAQ</strong>
+      <img src="/public/images/soldamaq-logo-campaign.png" alt="Soldamaq">
       <span>Gestao do Hotspot</span>
     </div>
     <nav>

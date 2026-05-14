@@ -1,36 +1,44 @@
 :root {
   color-scheme: light;
   font-family: Arial, Helvetica, sans-serif;
-  --ink: #171717;
-  --muted: #675f4b;
-  --line: #e0d5aa;
-  --brand: #ffd200;
-  --paper: #fffdf5;
-  --bg: #f4f1e5;
+  --ink: #133c49;
+  --muted: #48616a;
+  --line: #d7e2d8;
+  --brand: #fdda00;
+  --brand-dark: #e8c600;
+  --green: #19672e;
+  --green-dark: #145326;
+  --navy: #133c49;
+  --black: #1d1d1b;
+  --paper: #fffdf3;
+  --bg: #eef4ed;
   --ok: #067647;
-  --warn: #986f00;
+  --warn: #8a6500;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 12px 12px, rgba(19, 60, 73, .08) 0 2px, transparent 2px 18px),
+    linear-gradient(180deg, #eef4ed 0%, #f8faf2 100%);
+  background-size: 30px 30px, auto;
   color: var(--ink);
 }
 
 a {
-  color: #171717;
+  color: var(--navy);
   font-weight: 700;
 }
 
 button,
 .button {
   min-height: 40px;
-  border: 1px solid #171717;
+  border: 1px solid var(--black);
   border-radius: 6px;
   background: var(--brand);
-  color: #171717;
+  color: var(--black);
   display: inline-grid;
   place-items: center;
   padding: 0 14px;
@@ -41,13 +49,13 @@ button,
 }
 
 .button.secondary {
-  background: #171717;
+  background: var(--navy);
   color: var(--brand);
 }
 
 .topbar {
   min-height: 64px;
-  background: #171717;
+  background: var(--navy);
   color: var(--brand);
   display: flex;
   align-items: center;
@@ -62,8 +70,14 @@ button,
   display: block;
 }
 
+.topbar img {
+  display: block;
+  width: 190px;
+  height: auto;
+}
+
 .topbar span {
-  color: #fff8ce;
+  color: #fff7b8;
   font-size: 12px;
   margin-top: 2px;
 }
@@ -127,7 +141,7 @@ p {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: 0 8px 22px rgba(40, 35, 15, .08);
+  box-shadow: 0 8px 22px rgba(29, 29, 27, .08);
 }
 
 .metric {
@@ -184,14 +198,14 @@ table {
 th,
 td {
   padding: 10px 9px;
-  border-bottom: 1px solid #eee4bd;
+  border-bottom: 1px solid #e2eadf;
   text-align: left;
   vertical-align: top;
   font-size: 13px;
 }
 
 th {
-  color: #5d5232;
+  color: var(--green);
   font-size: 11px;
   text-transform: uppercase;
 }
@@ -211,12 +225,12 @@ th {
 }
 
 .badge.warn {
-  background: #fff1b8;
+  background: #fff4b8;
   color: var(--warn);
 }
 
 .badge.muted {
-  background: #eee9d9;
+  background: #e9efeb;
   color: var(--muted);
 }
 
@@ -238,7 +252,7 @@ th {
 .admin-form label {
   display: grid;
   gap: 7px;
-  color: #2f2d28;
+  color: var(--navy);
   font-size: 13px;
   font-weight: 800;
 }
@@ -247,7 +261,7 @@ th {
 .admin-form textarea {
   width: 100%;
   min-height: 42px;
-  border: 1px solid #cfc4a2;
+  border: 1px solid #b8cfbf;
   border-radius: 6px;
   background: #fff;
   color: var(--ink);
