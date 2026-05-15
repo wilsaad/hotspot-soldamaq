@@ -237,6 +237,19 @@ function publicUrl(req, path) {
   return `${req.protocol}://${req.get('host')}${path}`;
 }
 
+function summarizeUnifiAuthorization(response) {
+  const guest = Array.isArray(response?.data) ? response.data[0] : null;
+  if (!guest) return { rc: response?.meta?.rc };
+  return {
+    rc: response?.meta?.rc,
+    ap_mac: guest.ap_mac,
+    ip: guest.ip,
+    start: guest.start,
+    end: guest.end,
+    authorized_by: guest.authorized_by
+  };
+}
+
 async function sendValidationLink(req, res, next) {
   try {
     if (!req.session.telefone) return res.redirect('/portal');
@@ -244,14 +257,20 @@ async function sendValidationLink(req, res, next) {
     const validationPath = `/whatsapp/validate/${encodeURIComponent(token.token)}`;
     const validationUrl = publicUrl(req, validationPath);
 
-    await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.tempGuestMinutes });
+    const tempAuthorizeStartedAt = Date.now();
+    const tempAuthorization = await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.tempGuestMinutes });
+    const tempAuthorizeDurationMs = Date.now() - tempAuthorizeStartedAt;
     await markAuthorized({ sessionId: req.session.wifiSessionId });
     await audit({
       event: 'temporary_authorize',
       sessionId: req.session.wifiSessionId,
       telefone: req.session.telefone,
       mac: req.session.mac,
-      payload: { minutes: config.tempGuestMinutes }
+      payload: {
+        minutes: config.tempGuestMinutes,
+        duration_ms: tempAuthorizeDurationMs,
+        unifi: summarizeUnifiAuthorization(tempAuthorization)
+      }
     });
 
     const mensagem = `Soldamaq: sua internet foi liberada por ${config.tempGuestMinutes} minutos. Para estender por mais ${config.extendedGuestMinutes} minutos, valide seu WhatsApp neste link: ${validationUrl}`;
@@ -342,7 +361,9 @@ app.post('/whatsapp/validate/:token', async (req, res, next) => {
     const row = await findValidationToken(token);
     if (!row) return res.status(400).send(validationErrorView({ error: 'Link expirado ou ja utilizado.' }));
 
-    await authorizeGuest({ site: row.unifi_site, mac: row.mac, minutes: config.extendedGuestMinutes });
+    const extendedAuthorizeStartedAt = Date.now();
+    const extendedAuthorization = await authorizeGuest({ site: row.unifi_site, mac: row.mac, minutes: config.extendedGuestMinutes });
+    const extendedAuthorizeDurationMs = Date.now() - extendedAuthorizeStartedAt;
     await markOtpValidated({ sessionId: row.wifi_session_id, telefone: row.telefone, codigo: token });
     await markAuthorized({ sessionId: row.wifi_session_id });
     await audit({
@@ -350,7 +371,11 @@ app.post('/whatsapp/validate/:token', async (req, res, next) => {
       sessionId: row.wifi_session_id,
       telefone: row.telefone,
       mac: row.mac,
-      payload: { minutes: config.extendedGuestMinutes }
+      payload: {
+        minutes: config.extendedGuestMinutes,
+        duration_ms: extendedAuthorizeDurationMs,
+        unifi: summarizeUnifiAuthorization(extendedAuthorization)
+      }
     });
 
     const store = {
