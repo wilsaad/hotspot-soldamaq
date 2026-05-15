@@ -8,7 +8,7 @@ function layout({ title, body, error = '', step = 1 }) {
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow">
   <title>${title}</title>
-  <link rel="stylesheet" href="/public/styles.css">
+  <link rel="stylesheet" href="/public/styles.css?v=20260515-1">
 </head>
 <body>
   <main class="shell">
@@ -67,10 +67,78 @@ export function temporaryAccessView({ telefone, minutes, extendedMinutes }) {
   return layout({
     title: 'Internet liberada',
     step: 3,
-    body: `<h1>Internet liberada por ${escapeHtml(minutes)} minutos</h1>
-      <p>Enviamos um link para ${escapeHtml(displayPhone(telefone))} no WhatsApp.</p>
-      <p>Para estender seu acesso por mais ${escapeHtml(extendedMinutes)} minutos, clique no link recebido no WhatsApp.</p>
-      <a class="button" href="http://neverssl.com/">Abrir navegador</a>`
+    body: `<div class="wait-state" data-probe-url="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" data-next-url="http://neverssl.com/">
+        <div class="logo-spinner" aria-hidden="true">
+          <img src="/public/images/soldamaq-logo-campaign.png" alt="">
+        </div>
+        <h1>Ativando seu acesso</h1>
+        <p id="wait-message">Aguarde alguns segundos enquanto confirmamos a liberacao da internet.</p>
+        <p class="countdown">Verificando em <strong id="wait-count">3</strong>s</p>
+        <a class="button fallback-button" href="http://neverssl.com/" hidden>Abrir navegador</a>
+      </div>
+      <div class="ready-state" hidden>
+        <h1>Internet liberada por ${escapeHtml(minutes)} minutos</h1>
+        <p>Enviamos um link para ${escapeHtml(displayPhone(telefone))} no WhatsApp.</p>
+        <p>Para estender seu acesso por mais ${escapeHtml(extendedMinutes)} minutos, clique no link recebido no WhatsApp.</p>
+        <a class="button" href="http://neverssl.com/">Abrir navegador</a>
+      </div>
+      <script>
+        (() => {
+          const waitState = document.querySelector('.wait-state');
+          const readyState = document.querySelector('.ready-state');
+          const counter = document.querySelector('#wait-count');
+          const message = document.querySelector('#wait-message');
+          const fallbackButton = document.querySelector('.fallback-button');
+          const probeUrl = waitState.dataset.probeUrl;
+          const nextUrl = waitState.dataset.nextUrl;
+          let seconds = 3;
+          let attempts = 0;
+          let finished = false;
+
+          function showReady() {
+            if (finished) return;
+            finished = true;
+            waitState.hidden = true;
+            readyState.hidden = false;
+            window.setTimeout(() => window.location.assign(nextUrl), 1800);
+          }
+
+          function probeInternet() {
+            if (finished) return;
+            attempts += 1;
+            const image = new Image();
+            const timeout = window.setTimeout(scheduleRetry, 4500);
+            image.onload = () => {
+              window.clearTimeout(timeout);
+              showReady();
+            };
+            image.onerror = () => {
+              window.clearTimeout(timeout);
+              scheduleRetry();
+            };
+            image.src = probeUrl + '?hotspot=' + Date.now();
+          }
+
+          function scheduleRetry() {
+            if (finished) return;
+            seconds = 3;
+            counter.textContent = String(seconds);
+            if (attempts >= 5) {
+              message.textContent = 'Ainda estamos aguardando a liberacao completa da internet.';
+              fallbackButton.hidden = false;
+            }
+            window.setTimeout(probeInternet, 3000);
+          }
+
+          window.setInterval(() => {
+            if (finished) return;
+            seconds = Math.max(0, seconds - 1);
+            counter.textContent = String(seconds);
+          }, 1000);
+
+          window.setTimeout(probeInternet, 3000);
+        })();
+      </script>`
   });
 }
 
