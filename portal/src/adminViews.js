@@ -136,7 +136,7 @@ export function adminStoresView({ stores }) {
       </section>
       <article class="panel">
         ${table({
-          headers: ['ID', 'Codigo', 'Loja', 'Site UniFi', 'Cidade', 'Telefone', 'Gerente', 'Sessoes', 'Telefones', 'Review', 'Acoes'],
+          headers: ['ID', 'Codigo', 'Loja', 'Site UniFi', 'Cidade', 'Telefone', 'Gerente', 'Entrada livre', 'Sessoes', 'Telefones', 'Review', 'Acoes'],
           rows: stores.map((row) => [
             row.id,
             row.code || '',
@@ -145,6 +145,7 @@ export function adminStoresView({ stores }) {
             `${row.city || ''}/${row.state || ''}`,
             row.phone || '',
             row.manager || '',
+            row.auto_authorize_on_entry ? raw(`<span class="badge ok">${row.entry_guest_minutes} min</span>`) : raw('<span class="badge muted">Nao</span>'),
             row.sessions,
             row.unique_phones,
             row.google_review_url ? raw('<span class="badge ok">Configurado</span>') : raw('<span class="badge muted">Pendente</span>'),
@@ -177,6 +178,11 @@ export function adminStoreFormView({ store = {}, action, title, error = '' }) {
           ${input('Gerente', 'manager', store.manager, 'Nome do responsavel')}
           ${input('Google Place ID', 'google_place_id', store.google_place_id, 'Opcional')}
           ${input('URL de avaliacao Google', 'google_review_url', store.google_review_url, 'https://www.google.com/...')}
+          <label class="check">
+            <input type="checkbox" name="auto_authorize_on_entry" ${store.auto_authorize_on_entry ? 'checked' : ''}>
+            <span>Liberar internet automaticamente na entrada</span>
+          </label>
+          ${input('Minutos liberados na entrada', 'entry_guest_minutes', store.entry_guest_minutes || 7, '7')}
           <label>AP aliases
             <textarea name="ap_aliases" rows="4" placeholder="Um AP por linha ou separados por virgula">${escapeHtml((store.ap_aliases || []).join('\n'))}</textarea>
           </label>

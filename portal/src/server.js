@@ -216,7 +216,40 @@ app.get(['/portal', '/guest/s/:site'], async (req, res, next) => {
     req.session.ssid = ssid;
     req.session.site = site;
     await audit({ event: 'portal_entry', sessionId: sessionRow.id, mac, payload: { ap, ssid, site } });
-    res.send(lgpdView({ store }));
+    let entryAuthorized = false;
+    if (store?.auto_authorize_on_entry) {
+      try {
+        const entryAuthorizeStartedAt = Date.now();
+        const entryAuthorization = await authorizeGuest({
+          site,
+          mac,
+          minutes: store.entry_guest_minutes || config.tempGuestMinutes
+        });
+        const entryAuthorizeDurationMs = Date.now() - entryAuthorizeStartedAt;
+        await markAuthorized({ sessionId: sessionRow.id });
+        await audit({
+          event: 'entry_temporary_authorize',
+          sessionId: sessionRow.id,
+          mac,
+          payload: {
+            minutes: store.entry_guest_minutes || config.tempGuestMinutes,
+            duration_ms: entryAuthorizeDurationMs,
+            unifi: summarizeUnifiAuthorization(entryAuthorization)
+          }
+        });
+        req.session.entryAuthorized = true;
+        entryAuthorized = true;
+      } catch (entryAuthorizeError) {
+        logger.warn({ err: entryAuthorizeError, sessionId: sessionRow.id }, 'entry authorization failed');
+        await audit({
+          event: 'entry_temporary_authorize_failed',
+          sessionId: sessionRow.id,
+          mac,
+          payload: { message: entryAuthorizeError.message }
+        });
+      }
+    }
+    res.send(lgpdView({ store, entryAuthorized }));
   } catch (error) {
     next(error);
   }
@@ -228,9 +261,9 @@ app.post('/register', requireSession, async (req, res, next) => {
     const telefone = normalizeBrazilPhone(req.body.telefone);
     const lgpdAccepted = req.body.lgpd === 'yes';
 
-    if (!lgpdAccepted) return res.status(400).send(lgpdView({ store: req.session.store, error: 'Aceite a LGPD para continuar.' }));
-    if (nome.length < 2) return res.status(400).send(lgpdView({ store: req.session.store, error: 'Informe seu nome.' }));
-    if (!telefone) return res.status(400).send(lgpdView({ store: req.session.store, error: 'Informe um WhatsApp brasileiro valido.' }));
+    if (!lgpdAccepted) return res.status(400).send(lgpdView({ store: req.session.store, entryAuthorized: req.session.entryAuthorized, error: 'Aceite a LGPD para continuar.' }));
+    if (nome.length < 2) return res.status(400).send(lgpdView({ store: req.session.store, entryAuthorized: req.session.entryAuthorized, error: 'Informe seu nome.' }));
+    if (!telefone) return res.status(400).send(lgpdView({ store: req.session.store, entryAuthorized: req.session.entryAuthorized, error: 'Informe um WhatsApp brasileiro valido.' }));
 
     req.session.nome = nome;
     req.session.telefone = telefone;
@@ -266,21 +299,23 @@ async function sendValidationLink(req, res, next) {
     const validationPath = `/whatsapp/validate/${encodeURIComponent(token.token)}`;
     const validationUrl = publicUrl(req, validationPath);
 
-    const tempAuthorizeStartedAt = Date.now();
-    const tempAuthorization = await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.tempGuestMinutes });
-    const tempAuthorizeDurationMs = Date.now() - tempAuthorizeStartedAt;
-    await markAuthorized({ sessionId: req.session.wifiSessionId });
-    await audit({
-      event: 'temporary_authorize',
-      sessionId: req.session.wifiSessionId,
-      telefone: req.session.telefone,
-      mac: req.session.mac,
-      payload: {
-        minutes: config.tempGuestMinutes,
-        duration_ms: tempAuthorizeDurationMs,
-        unifi: summarizeUnifiAuthorization(tempAuthorization)
-      }
-    });
+    if (!req.session.entryAuthorized) {
+      const tempAuthorizeStartedAt = Date.now();
+      const tempAuthorization = await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.tempGuestMinutes });
+      const tempAuthorizeDurationMs = Date.now() - tempAuthorizeStartedAt;
+      await markAuthorized({ sessionId: req.session.wifiSessionId });
+      await audit({
+        event: 'temporary_authorize',
+        sessionId: req.session.wifiSessionId,
+        telefone: req.session.telefone,
+        mac: req.session.mac,
+        payload: {
+          minutes: config.tempGuestMinutes,
+          duration_ms: tempAuthorizeDurationMs,
+          unifi: summarizeUnifiAuthorization(tempAuthorization)
+        }
+      });
+    }
 
     const mensagem = `Soldamaq: sua internet foi liberada por ${config.tempGuestMinutes} minutos. Para estender por mais ${config.extendedGuestMinutes} minutos, valide seu WhatsApp neste link: ${validationUrl}`;
     const webhookPayload = {

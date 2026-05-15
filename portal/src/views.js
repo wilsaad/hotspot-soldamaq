@@ -25,13 +25,15 @@ function layout({ title, body, error = '', step = 1 }) {
 </html>`;
 }
 
-export function lgpdView({ store, error }) {
+export function lgpdView({ store, error, entryAuthorized = false }) {
   return layout({
     title: 'Acesso WiFi',
     step: 1,
     error,
     body: `<h1>${escapeHtml(store?.name || 'Bem-vindo')}</h1>
-      <p>Para liberar seu acesso, precisamos validar seu telefone por WhatsApp e registrar seu consentimento.</p>
+      <p>${entryAuthorized
+        ? `Sua internet ja esta liberada por ${escapeHtml(store.entry_guest_minutes)} minutos. Cadastre seu WhatsApp para continuar por mais tempo.`
+        : 'Para liberar seu acesso, precisamos validar seu telefone por WhatsApp e registrar seu consentimento.'}</p>
       <form method="post" action="/register" class="form">
         <label class="check">
           <input type="checkbox" name="lgpd" value="yes" required>

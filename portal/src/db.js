@@ -228,6 +228,8 @@ export async function getAdminStores() {
       st.manager,
       st.google_place_id,
       st.google_review_url,
+      st.auto_authorize_on_entry,
+      st.entry_guest_minutes,
       coalesce(array_length(st.ap_aliases, 1), 0)::int as ap_alias_count,
       count(ws.*)::int as sessions,
       count(distinct nullif(ws.telefone, ''))::int as unique_phones,
@@ -250,9 +252,9 @@ export async function createAdminStore(store) {
   const result = await pool.query(
     `insert into stores (
       code, name, unifi_site, address, city, state, phone, manager,
-      google_place_id, google_review_url, ap_aliases
+      google_place_id, google_review_url, ap_aliases, auto_authorize_on_entry, entry_guest_minutes
     )
-    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
     returning *`,
     values
   );
@@ -274,7 +276,9 @@ export async function updateAdminStore(id, store) {
       manager = $9,
       google_place_id = $10,
       google_review_url = $11,
-      ap_aliases = $12
+      ap_aliases = $12,
+      auto_authorize_on_entry = $13,
+      entry_guest_minutes = $14
      where id = $1
      returning *`,
     [id, ...values]
@@ -350,7 +354,9 @@ function normalizeStoreValues(store) {
     cleanOptional(store.manager),
     cleanOptional(store.google_place_id),
     cleanOptional(store.google_review_url),
-    apAliases
+    apAliases,
+    store.auto_authorize_on_entry === 'on' || store.auto_authorize_on_entry === true,
+    parsePositiveInt(store.entry_guest_minutes, 7)
   ];
 }
 
@@ -367,4 +373,9 @@ function cleanRequired(value, label) {
 function cleanOptional(value) {
   const text = String(value || '').trim().replace(/\s+/g, ' ');
   return text || null;
+}
+
+function parsePositiveInt(value, fallback) {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
