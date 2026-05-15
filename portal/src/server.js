@@ -39,6 +39,15 @@ app.use(morgan('combined'));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json({ limit: '128kb' }));
 app.use('/public', express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/public/')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+  }
+  next();
+});
 app.use(session({
   store: new RedisStore({ client: redis, prefix: 'sess:' }),
   secret: config.sessionSecret,
