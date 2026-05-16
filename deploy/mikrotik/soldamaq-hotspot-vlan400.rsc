@@ -54,6 +54,29 @@
 :if ([:len [find where dst-host="*.soldamaq.com.br"]] = 0) do={
   add dst-host="*.soldamaq.com.br" comment="Soldamaq dominios"
 }
+:if ([:len [find where dst-host="e8.i.lencr.org"]] = 0) do={
+  add dst-host="e8.i.lencr.org" comment="Lets Encrypt issuer"
+}
+:if ([:len [find where dst-host="e8.c.lencr.org"]] = 0) do={
+  add dst-host="e8.c.lencr.org" comment="Lets Encrypt cert"
+}
+
+/ip hotspot walled-garden ip
+:if ([:len [find where server="hotspot-soldamaq" dst-address="8.8.8.8" protocol=udp dst-port=53]] = 0) do={
+  add server="hotspot-soldamaq" dst-address=8.8.8.8 protocol=udp dst-port=53 comment="Google DNS UDP"
+}
+:if ([:len [find where server="hotspot-soldamaq" dst-address="8.8.8.8" protocol=tcp dst-port=53]] = 0) do={
+  add server="hotspot-soldamaq" dst-address=8.8.8.8 protocol=tcp dst-port=53 comment="Google DNS TCP"
+}
+:if ([:len [find where server="hotspot-soldamaq" dst-address="8.8.4.4" protocol=udp dst-port=53]] = 0) do={
+  add server="hotspot-soldamaq" dst-address=8.8.4.4 protocol=udp dst-port=53 comment="Google DNS UDP"
+}
+:if ([:len [find where server="hotspot-soldamaq" dst-address="8.8.4.4" protocol=tcp dst-port=53]] = 0) do={
+  add server="hotspot-soldamaq" dst-address=8.8.4.4 protocol=tcp dst-port=53 comment="Google DNS TCP"
+}
+:if ([:len [find where server="hotspot-soldamaq" dst-address="157.151.19.51" protocol=tcp dst-port=443]] = 0) do={
+  add server="hotspot-soldamaq" dst-address=157.151.19.51 protocol=tcp dst-port=443 comment="Portal HTTPS"
+}
 
 # Copie o arquivo deploy/mikrotik/hotspot-soldamaq/login.html para
 # hotspot-soldamaq/login.html no roteador antes de ativar a loja.

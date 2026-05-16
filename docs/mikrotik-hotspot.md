@@ -51,5 +51,6 @@ MIKROTIK_EXTENDED_PASSWORD=...
 ## Observacoes
 
 - O script nao altera endereco IP, DHCP, bridge, NAT ou a VLAN existente.
-- O walled garden libera apenas o dominio do portal antes da autenticacao.
+- O walled garden web libera o portal externo e os hosts de certificado usados antes da autenticacao.
+- O walled garden IP libera DNS para `8.8.8.8` e `8.8.4.4` em TCP/UDP 53 e HTTPS direto para `157.151.19.51`.
 - O modo usa `http-pap` no HotSpot para permitir o POST local com usuarios de perfil.
