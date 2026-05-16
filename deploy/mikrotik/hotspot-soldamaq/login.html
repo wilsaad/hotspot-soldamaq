@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Soldamaq WiFi</title>
+</head>
+<body>
+  <form name="redirect" action="https://automation.soldamaq.com.br/mikrotik/portal" method="post">
+    <input type="hidden" name="mac" value="$(mac)">
+    <input type="hidden" name="ip" value="$(ip)">
+    <input type="hidden" name="link-login-only" value="$(link-login-only)">
+    <input type="hidden" name="link-orig" value="$(link-orig)">
+    <input type="hidden" name="site" value="btmae4e2">
+    <input type="hidden" name="ssid" value="SOLDAMAQ-CLIENTES">
+  </form>
+  <script>document.redirect.submit();</script>
+</body>
+</html>

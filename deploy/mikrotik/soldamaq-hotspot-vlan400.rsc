@@ -1,5 +1,5 @@
 # Ajuste estes valores antes de importar.
-:local hotspotInterface "vlan400"
+:local hotspotInterface "vlan400-Piloto-HOTSPOT"
 :local hotspotGateway "172.31.255.1"
 :local portalHost "automation.soldamaq.com.br"
 :local portalUrl "https://automation.soldamaq.com.br/mikrotik/portal"
@@ -55,9 +55,5 @@
   add dst-host="*.soldamaq.com.br" comment="Soldamaq dominios"
 }
 
-/file
-:if ([:len [find where name="hotspot-soldamaq/login.html"]] = 0) do={
-  add name="hotspot-soldamaq/login.html" contents=("<!doctype html>\r\n<html>\r\n<head><meta charset=\"utf-8\"><title>Soldamaq WiFi</title></head>\r\n<body>\r\n<form name=\"redirect\" action=\"" . $portalUrl . "\" method=\"post\">\r\n<input type=\"hidden\" name=\"mac\" value=\"\$(mac)\">\r\n<input type=\"hidden\" name=\"ip\" value=\"\$(ip)\">\r\n<input type=\"hidden\" name=\"link-login-only\" value=\"\$(link-login-only)\">\r\n<input type=\"hidden\" name=\"link-orig\" value=\"\$(link-orig)\">\r\n<input type=\"hidden\" name=\"site\" value=\"" . $siteCode . "\">\r\n<input type=\"hidden\" name=\"ssid\" value=\"SOLDAMAQ-CLIENTES\">\r\n</form>\r\n<script>document.redirect.submit();</script>\r\n</body>\r\n</html>")
-} else={
-  set [find where name="hotspot-soldamaq/login.html"] contents=("<!doctype html>\r\n<html>\r\n<head><meta charset=\"utf-8\"><title>Soldamaq WiFi</title></head>\r\n<body>\r\n<form name=\"redirect\" action=\"" . $portalUrl . "\" method=\"post\">\r\n<input type=\"hidden\" name=\"mac\" value=\"\$(mac)\">\r\n<input type=\"hidden\" name=\"ip\" value=\"\$(ip)\">\r\n<input type=\"hidden\" name=\"link-login-only\" value=\"\$(link-login-only)\">\r\n<input type=\"hidden\" name=\"link-orig\" value=\"\$(link-orig)\">\r\n<input type=\"hidden\" name=\"site\" value=\"" . $siteCode . "\">\r\n<input type=\"hidden\" name=\"ssid\" value=\"SOLDAMAQ-CLIENTES\">\r\n</form>\r\n<script>document.redirect.submit();</script>\r\n</body>\r\n</html>")
-}
+# Copie o arquivo deploy/mikrotik/hotspot-soldamaq/login.html para
+# hotspot-soldamaq/login.html no roteador antes de ativar a loja.

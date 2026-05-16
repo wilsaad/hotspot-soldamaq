@@ -4,7 +4,7 @@ Este modo deixa o UniFi apenas como bridge WiFi e move o captive portal para o g
 
 ## Premissas
 
-- A `vlan400` ja existe no MikroTik.
+- A interface `vlan400-Piloto-HOTSPOT` ja existe no MikroTik.
 - IP, DHCP e NAT da VLAN 400 ja funcionam.
 - O SSID `SOLDAMAQ-CLIENTES` entrega clientes na VLAN 400.
 - O portal externo responde em `https://automation.soldamaq.com.br`.
@@ -12,7 +12,7 @@ Este modo deixa o UniFi apenas como bridge WiFi e move o captive portal para o g
 ## Aplicacao
 
 1. Edite `deploy/mikrotik/soldamaq-hotspot-vlan400.rsc`:
-   - `hotspotInterface`
+   - `hotspotInterface` (na Matriz: `vlan400-Piloto-HOTSPOT`)
    - `hotspotGateway`
    - `entryPassword`
    - `extendedPassword`
@@ -22,7 +22,13 @@ Este modo deixa o UniFi apenas como bridge WiFi e move o captive portal para o g
 /import file-name=soldamaq-hotspot-vlan400.rsc
 ```
 
-3. No portal, configure as mesmas senhas em:
+3. Envie a pagina local do HotSpot ao roteador:
+
+```bash
+scp deploy/mikrotik/hotspot-soldamaq/login.html automationsaad@172.16.101.1:hotspot-soldamaq/login.html
+```
+
+4. No portal, configure as mesmas senhas em:
 
 ```env
 MIKROTIK_ENTRY_USERNAME=soldamaq7
@@ -31,7 +37,7 @@ MIKROTIK_EXTENDED_USERNAME=soldamaq120
 MIKROTIK_EXTENDED_PASSWORD=...
 ```
 
-4. Na loja piloto, deixe `auth_backend=mikrotik`.
+5. Na loja piloto, deixe `auth_backend=mikrotik`.
 
 ## Fluxo
 
