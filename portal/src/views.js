@@ -1,6 +1,6 @@
 import { displayPhone } from './phone.js';
 
-function layout({ title, body, error = '', step = 1 }) {
+function layout({ title, body, error = '', step = 1, mikrotikLogin }) {
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -21,15 +21,17 @@ function layout({ title, body, error = '', step = 1 }) {
       ${body}
     </section>
   </main>
+  ${mikrotikLoginMarkup(mikrotikLogin)}
 </body>
 </html>`;
 }
 
-export function lgpdView({ store, error, entryAuthorized = false }) {
+export function lgpdView({ store, error, entryAuthorized = false, mikrotikLogin }) {
   return layout({
     title: 'Acesso WiFi',
     step: 1,
     error,
+    mikrotikLogin,
     body: `<h1>${escapeHtml(store?.name || 'Bem-vindo')}</h1>
       <p>${entryAuthorized
         ? `Sua internet ja esta liberada por ${escapeHtml(store.entry_guest_minutes)} minutos. Cadastre seu WhatsApp para continuar por mais tempo.`
@@ -65,10 +67,11 @@ export function otpView({ telefone, error, sent = false }) {
   });
 }
 
-export function temporaryAccessView({ telefone, minutes, extendedMinutes }) {
+export function temporaryAccessView({ telefone, minutes, extendedMinutes, mikrotikLogin }) {
   return layout({
     title: 'Internet liberada',
     step: 3,
+    mikrotikLogin,
     body: `<div class="wait-state" data-probe-url="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" data-next-url="http://neverssl.com/">
         <div class="logo-spinner" aria-hidden="true">
           <img src="/public/images/soldamaq-logo-campaign.png" alt="">
@@ -166,7 +169,7 @@ export function validationConfirmView({ token, telefone, extendedMinutes }) {
   });
 }
 
-export function doneView({ store } = {}) {
+export function doneView({ store, mikrotikLogin } = {}) {
   const reviewUrl = store?.google_review_url
     || (store?.google_place_id
     ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(store.google_place_id)}`
@@ -177,6 +180,7 @@ export function doneView({ store } = {}) {
   return layout({
     title: 'WiFi liberado',
     step: 5,
+    mikrotikLogin,
     body: `<h1>Internet liberada</h1>
       <p>Pronto. Voce ja pode navegar normalmente.</p>
       <a class="button" href="${escapeHtml(browserUrl)}">${buttonLabel}</a>`
@@ -190,4 +194,16 @@ export function escapeHtml(value = '') {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+}
+
+function mikrotikLoginMarkup(login) {
+  if (!login?.url || !login?.username || !login?.password) return '';
+  return `<iframe name="mikrotik-login-target" class="hidden-login-frame" title="MikroTik login"></iframe>
+  <form id="mikrotik-login-form" action="${escapeHtml(login.url)}" method="post" target="mikrotik-login-target">
+    <input type="hidden" name="username" value="${escapeHtml(login.username)}">
+    <input type="hidden" name="password" value="${escapeHtml(login.password)}">
+    <input type="hidden" name="dst" value="${escapeHtml(login.dst || 'http://neverssl.com/')}">
+    <input type="hidden" name="popup" value="false">
+  </form>
+  <script>document.querySelector('#mikrotik-login-form')?.submit();</script>`;
 }

@@ -190,12 +190,16 @@ app.get('/admin/phones/:telefone', requireAdmin, async (req, res, next) => {
   }
 });
 
-app.get(['/portal', '/guest/s/:site'], async (req, res, next) => {
+app.all(['/portal', '/guest/s/:site', '/mikrotik/portal'], async (req, res, next) => {
   try {
-    const mac = String(req.query.mac || req.query.id || '').toLowerCase();
-    const ap = String(req.query.ap || '').toLowerCase();
-    const ssid = String(req.query.ssid || '');
-    const site = String(req.query.site || req.params.site || config.unifi.defaultSite);
+    const hotspotParams = { ...req.query, ...req.body };
+    const mac = String(hotspotParams.mac || hotspotParams.id || '').toLowerCase();
+    const ap = String(hotspotParams.ap || '').toLowerCase();
+    const ssid = String(hotspotParams.ssid || '');
+    const site = String(hotspotParams.site || req.params.site || config.unifi.defaultSite);
+    const hotspotLoginUrl = String(hotspotParams['link-login-only'] || hotspotParams.link_login_only || '');
+    const hotspotOrigUrl = String(hotspotParams['link-orig'] || hotspotParams.link_orig || '');
+    const clientIp = String(hotspotParams.ip || '');
 
     if (!mac || !/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(mac)) {
       return res.status(400).send(lgpdView({ store: null, error: 'Parametro MAC ausente ou invalido.' }));
@@ -207,7 +211,10 @@ app.get(['/portal', '/guest/s/:site'], async (req, res, next) => {
       mac,
       ap,
       ssid,
-      site
+      site,
+      hotspotLoginUrl,
+      hotspotOrigUrl,
+      clientIp
     });
     req.session.wifiSessionId = sessionRow.id;
     req.session.store = store;
@@ -215,10 +222,26 @@ app.get(['/portal', '/guest/s/:site'], async (req, res, next) => {
     req.session.ap = ap;
     req.session.ssid = ssid;
     req.session.site = site;
-    await audit({ event: 'portal_entry', sessionId: sessionRow.id, mac, payload: { ap, ssid, site } });
+    req.session.hotspotLoginUrl = hotspotLoginUrl;
+    req.session.hotspotOrigUrl = hotspotOrigUrl;
+    req.session.clientIp = clientIp;
+    await audit({ event: 'portal_entry', sessionId: sessionRow.id, mac, payload: { ap, ssid, site, backend: store?.auth_backend || 'unifi' } });
     let entryAuthorized = false;
     if (store?.auto_authorize_on_entry) {
-      try {
+      if (store.auth_backend === 'mikrotik') {
+        entryAuthorized = Boolean(hotspotLoginUrl);
+        req.session.entryAuthorized = entryAuthorized;
+        await audit({
+          event: 'entry_temporary_login_dispatched',
+          sessionId: sessionRow.id,
+          mac,
+          payload: {
+            minutes: store.entry_guest_minutes || config.tempGuestMinutes,
+            backend: 'mikrotik',
+            has_login_url: Boolean(hotspotLoginUrl)
+          }
+        });
+      } else try {
         const entryAuthorizeStartedAt = Date.now();
         const entryAuthorization = await authorizeGuest({
           site,
@@ -249,7 +272,11 @@ app.get(['/portal', '/guest/s/:site'], async (req, res, next) => {
         });
       }
     }
-    res.send(lgpdView({ store, entryAuthorized }));
+    res.send(lgpdView({
+      store,
+      entryAuthorized,
+      mikrotikLogin: entryAuthorized ? buildMikrotikLogin(req.session, 'entry') : null
+    }));
   } catch (error) {
     next(error);
   }
@@ -261,9 +288,9 @@ app.post('/register', requireSession, async (req, res, next) => {
     const telefone = normalizeBrazilPhone(req.body.telefone);
     const lgpdAccepted = req.body.lgpd === 'yes';
 
-    if (!lgpdAccepted) return res.status(400).send(lgpdView({ store: req.session.store, entryAuthorized: req.session.entryAuthorized, error: 'Aceite a LGPD para continuar.' }));
-    if (nome.length < 2) return res.status(400).send(lgpdView({ store: req.session.store, entryAuthorized: req.session.entryAuthorized, error: 'Informe seu nome.' }));
-    if (!telefone) return res.status(400).send(lgpdView({ store: req.session.store, entryAuthorized: req.session.entryAuthorized, error: 'Informe um WhatsApp brasileiro valido.' }));
+    if (!lgpdAccepted) return res.status(400).send(lgpdView({ store: req.session.store, entryAuthorized: req.session.entryAuthorized, mikrotikLogin: req.session.entryAuthorized ? buildMikrotikLogin(req.session, 'entry') : null, error: 'Aceite a LGPD para continuar.' }));
+    if (nome.length < 2) return res.status(400).send(lgpdView({ store: req.session.store, entryAuthorized: req.session.entryAuthorized, mikrotikLogin: req.session.entryAuthorized ? buildMikrotikLogin(req.session, 'entry') : null, error: 'Informe seu nome.' }));
+    if (!telefone) return res.status(400).send(lgpdView({ store: req.session.store, entryAuthorized: req.session.entryAuthorized, mikrotikLogin: req.session.entryAuthorized ? buildMikrotikLogin(req.session, 'entry') : null, error: 'Informe um WhatsApp brasileiro valido.' }));
 
     req.session.nome = nome;
     req.session.telefone = telefone;
@@ -292,6 +319,19 @@ function summarizeUnifiAuthorization(response) {
   };
 }
 
+function buildMikrotikLogin(session, kind) {
+  if (!session.hotspotLoginUrl) return null;
+  const username = kind === 'extended' ? config.mikrotik.extendedUsername : config.mikrotik.entryUsername;
+  const password = kind === 'extended' ? config.mikrotik.extendedPassword : config.mikrotik.entryPassword;
+  if (!username || !password) return null;
+  return {
+    url: session.hotspotLoginUrl,
+    username,
+    password,
+    dst: session.hotspotOrigUrl || 'http://neverssl.com/'
+  };
+}
+
 async function sendValidationLink(req, res, next) {
   try {
     if (!req.session.telefone) return res.redirect('/portal');
@@ -299,7 +339,7 @@ async function sendValidationLink(req, res, next) {
     const validationPath = `/whatsapp/validate/${encodeURIComponent(token.token)}`;
     const validationUrl = publicUrl(req, validationPath);
 
-    if (!req.session.entryAuthorized) {
+    if (!req.session.entryAuthorized && req.session.store?.auth_backend !== 'mikrotik') {
       const tempAuthorizeStartedAt = Date.now();
       const tempAuthorization = await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.tempGuestMinutes });
       const tempAuthorizeDurationMs = Date.now() - tempAuthorizeStartedAt;
@@ -357,7 +397,10 @@ async function sendValidationLink(req, res, next) {
     res.send(temporaryAccessView({
       telefone: req.session.telefone,
       minutes: config.tempGuestMinutes,
-      extendedMinutes: config.extendedGuestMinutes
+      extendedMinutes: config.extendedGuestMinutes,
+      mikrotikLogin: req.session.store?.auth_backend === 'mikrotik' && !req.session.entryAuthorized
+        ? buildMikrotikLogin(req.session, 'entry')
+        : null
     }));
   } catch (error) {
     if (error.status === 429) return res.status(429).send(otpView({ telefone: req.session.telefone, error: error.message }));
@@ -405,9 +448,28 @@ app.post('/whatsapp/validate/:token', async (req, res, next) => {
     const row = await findValidationToken(token);
     if (!row) return res.status(400).send(validationErrorView({ error: 'Link expirado ou ja utilizado.' }));
 
-    const extendedAuthorizeStartedAt = Date.now();
-    const extendedAuthorization = await authorizeGuest({ site: row.unifi_site, mac: row.mac, minutes: config.extendedGuestMinutes });
-    const extendedAuthorizeDurationMs = Date.now() - extendedAuthorizeStartedAt;
+    let authorizationPayload;
+    let mikrotikLogin = null;
+    if (row.auth_backend === 'mikrotik') {
+      mikrotikLogin = buildMikrotikLogin({
+        hotspotLoginUrl: row.hotspot_login_url,
+        hotspotOrigUrl: row.hotspot_orig_url
+      }, 'extended');
+      authorizationPayload = {
+        minutes: config.extendedGuestMinutes,
+        backend: 'mikrotik',
+        login_dispatched: Boolean(mikrotikLogin)
+      };
+    } else {
+      const extendedAuthorizeStartedAt = Date.now();
+      const extendedAuthorization = await authorizeGuest({ site: row.unifi_site, mac: row.mac, minutes: config.extendedGuestMinutes });
+      const extendedAuthorizeDurationMs = Date.now() - extendedAuthorizeStartedAt;
+      authorizationPayload = {
+        minutes: config.extendedGuestMinutes,
+        duration_ms: extendedAuthorizeDurationMs,
+        unifi: summarizeUnifiAuthorization(extendedAuthorization)
+      };
+    }
     await markOtpValidated({ sessionId: row.wifi_session_id, telefone: row.telefone, codigo: token });
     await markAuthorized({ sessionId: row.wifi_session_id });
     await audit({
@@ -415,11 +477,7 @@ app.post('/whatsapp/validate/:token', async (req, res, next) => {
       sessionId: row.wifi_session_id,
       telefone: row.telefone,
       mac: row.mac,
-      payload: {
-        minutes: config.extendedGuestMinutes,
-        duration_ms: extendedAuthorizeDurationMs,
-        unifi: summarizeUnifiAuthorization(extendedAuthorization)
-      }
+      payload: authorizationPayload
     });
 
     const store = {
@@ -441,7 +499,7 @@ app.post('/whatsapp/validate/:token', async (req, res, next) => {
       evento: 'post_login'
     });
 
-    res.send(doneView({ store }));
+    res.send(doneView({ store, mikrotikLogin }));
   } catch (error) {
     next(error);
   }

@@ -1,6 +1,6 @@
-# Hotspot WiFi Enterprise UniFi + n8n + WhatsApp
+# Hotspot WiFi Enterprise UniFi/MikroTik + n8n + WhatsApp
 
-Plataforma Docker para captive portal multi-loja com validação obrigatória por WhatsApp, autorização UniFi e base de dados para campanhas futuras.
+Plataforma Docker para captive portal multi-loja com validação obrigatória por WhatsApp, autorização UniFi ou MikroTik e base de dados para campanhas futuras.
 
 ## Componentes
 
@@ -97,6 +97,15 @@ https://hotspot.exemplo.com.br/portal?mac=aa:bb:cc:dd:ee:ff&ap=ap01&ssid=Visitan
 ```
 
 O portal chama `authorize-guest` com o MAC validado. Exemplos manuais estão em `docs/unifi-api-examples.md`.
+
+## Configuração MikroTik
+
+Para usar o HotSpot local do MikroTik e manter o UniFi apenas como bridge da VLAN, veja:
+
+- `docs/mikrotik-hotspot.md`
+- `deploy/mikrotik/soldamaq-hotspot-vlan400.rsc`
+
+O script preserva a `vlan400`, IP e DHCP existentes e cria apenas o HotSpot, perfis de 7/120 minutos, usuarios locais e a pagina de redirecionamento para o portal externo.
 
 ## Lojas
 

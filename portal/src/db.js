@@ -20,12 +20,12 @@ export async function findStore({ site, ap }) {
   return fallback.rows[0] || null;
 }
 
-export async function createWifiSession({ storeId, mac, ap, ssid, site }) {
+export async function createWifiSession({ storeId, mac, ap, ssid, site, hotspotLoginUrl, hotspotOrigUrl, clientIp }) {
   const result = await pool.query(
-    `insert into wifi_sessions (store_id, mac, ap, ssid, unifi_site)
-     values ($1, $2, $3, $4, $5)
+    `insert into wifi_sessions (store_id, mac, ap, ssid, unifi_site, hotspot_login_url, hotspot_orig_url, client_ip)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
      returning *`,
-    [storeId, mac, ap, ssid, site]
+    [storeId, mac, ap, ssid, site, hotspotLoginUrl, hotspotOrigUrl, clientIp]
   );
   return result.rows[0];
 }
@@ -66,11 +66,15 @@ export async function findValidationToken(token) {
        ws.ap,
        ws.ssid,
        ws.unifi_site,
+       ws.hotspot_login_url,
+       ws.hotspot_orig_url,
+       ws.client_ip,
        ws.nome,
        ws.store_id,
        st.name as store_name,
        st.google_place_id,
-       st.google_review_url
+       st.google_review_url,
+       st.auth_backend
      from otp_codes oc
      join wifi_sessions ws on ws.id = oc.wifi_session_id
      left join stores st on st.id = ws.store_id
@@ -228,6 +232,7 @@ export async function getAdminStores() {
       st.manager,
       st.google_place_id,
       st.google_review_url,
+      st.auth_backend,
       st.auto_authorize_on_entry,
       st.entry_guest_minutes,
       coalesce(array_length(st.ap_aliases, 1), 0)::int as ap_alias_count,
@@ -252,9 +257,9 @@ export async function createAdminStore(store) {
   const result = await pool.query(
     `insert into stores (
       code, name, unifi_site, address, city, state, phone, manager,
-      google_place_id, google_review_url, ap_aliases, auto_authorize_on_entry, entry_guest_minutes
+      google_place_id, google_review_url, ap_aliases, auto_authorize_on_entry, entry_guest_minutes, auth_backend
     )
-    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     returning *`,
     values
   );
@@ -278,7 +283,8 @@ export async function updateAdminStore(id, store) {
       google_review_url = $11,
       ap_aliases = $12,
       auto_authorize_on_entry = $13,
-      entry_guest_minutes = $14
+      entry_guest_minutes = $14,
+      auth_backend = $15
      where id = $1
      returning *`,
     [id, ...values]
@@ -356,7 +362,8 @@ function normalizeStoreValues(store) {
     cleanOptional(store.google_review_url),
     apAliases,
     store.auto_authorize_on_entry === 'on' || store.auto_authorize_on_entry === true,
-    parsePositiveInt(store.entry_guest_minutes, 7)
+    parsePositiveInt(store.entry_guest_minutes, 7),
+    ['unifi', 'mikrotik'].includes(store.auth_backend) ? store.auth_backend : 'unifi'
   ];
 }
 

@@ -41,5 +41,11 @@ export const config = {
     defaultSite: process.env.UNIFI_DEFAULT_SITE || 'default',
     verifyTls: bool('UNIFI_VERIFY_TLS', true),
     apiMode: process.env.UNIFI_API_MODE || 'auto'
+  },
+  mikrotik: {
+    entryUsername: process.env.MIKROTIK_ENTRY_USERNAME || '',
+    entryPassword: process.env.MIKROTIK_ENTRY_PASSWORD || '',
+    extendedUsername: process.env.MIKROTIK_EXTENDED_USERNAME || '',
+    extendedPassword: process.env.MIKROTIK_EXTENDED_PASSWORD || ''
   }
 };

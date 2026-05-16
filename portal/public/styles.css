@@ -205,6 +205,14 @@ button:active, .button:active {
   display: none;
 }
 
+.hidden-login-frame {
+  width: 0;
+  height: 0;
+  border: 0;
+  position: absolute;
+  left: -9999px;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

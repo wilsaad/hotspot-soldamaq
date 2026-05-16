@@ -136,11 +136,12 @@ export function adminStoresView({ stores }) {
       </section>
       <article class="panel">
         ${table({
-          headers: ['ID', 'Codigo', 'Loja', 'Site UniFi', 'Cidade', 'Telefone', 'Gerente', 'Entrada livre', 'Sessoes', 'Telefones', 'Review', 'Acoes'],
+          headers: ['ID', 'Codigo', 'Loja', 'Backend', 'Site UniFi', 'Cidade', 'Telefone', 'Gerente', 'Entrada livre', 'Sessoes', 'Telefones', 'Review', 'Acoes'],
           rows: stores.map((row) => [
             row.id,
             row.code || '',
             row.name,
+            row.auth_backend,
             row.unifi_site,
             `${row.city || ''}/${row.state || ''}`,
             row.phone || '',
@@ -170,6 +171,12 @@ export function adminStoreFormView({ store = {}, action, title, error = '' }) {
         <form method="post" action="${escapeHtml(action)}" class="admin-form">
           ${input('Codigo', 'code', store.code, 'Ex: 13MAIO')}
           ${input('Nome da loja', 'name', store.name, 'Soldamaq - Unidade', true)}
+          <label>Backend de autorizacao
+            <select name="auth_backend">
+              <option value="unifi" ${store.auth_backend !== 'mikrotik' ? 'selected' : ''}>UniFi</option>
+              <option value="mikrotik" ${store.auth_backend === 'mikrotik' ? 'selected' : ''}>MikroTik</option>
+            </select>
+          </label>
           ${input('Site UniFi', 'unifi_site', store.unifi_site, 'site-id-da-controladora', true)}
           ${input('Endereco', 'address', store.address, 'Rua, numero - bairro')}
           ${input('Cidade', 'city', store.city, 'Campo Grande')}
