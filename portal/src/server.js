@@ -99,15 +99,20 @@ app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
 app.get('/captive-portal/api', async (req, res, next) => {
   try {
+    const requestedSite = String(req.query.site || '').trim();
+    const requestedSsid = String(req.query.ssid || 'SOLDAMAQ-CLIENTES').trim();
     const authorizedSession = await findAuthorizedWifiSessionForLease({
-      site: null,
+      site: requestedSite || null,
       publicIp: requestPublicIp(req)
     });
+    const portalUrl = requestedSite
+      ? publicUrl(req, `/mikrotik/portal?source=dhcp114&site=${encodeURIComponent(requestedSite)}&ssid=${encodeURIComponent(requestedSsid)}`)
+      : config.captivePortalUrl;
 
     res.type('application/captive+json');
     res.json(authorizedSession ? { captive: false } : {
       captive: true,
-      'user-portal-url': config.captivePortalUrl
+      'user-portal-url': portalUrl
     });
   } catch (error) {
     next(error);

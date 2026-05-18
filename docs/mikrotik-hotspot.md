@@ -59,10 +59,10 @@ MIKROTIK_EXTENDED_PASSWORD=...
 
 Em redes onde a interceptacao HTTP nativa do HotSpot nao e acionada por causa da topologia `bridge + VLAN + use-ip-firewall-for-vlan`, anuncie a API de captive portal via DHCP option 114 na rede `172.31.255.0/24`.
 
-Endpoint da API:
+Endpoint da API por loja:
 
 ```text
-https://automation.soldamaq.com.br/captive-portal/api
+https://automation.soldamaq.com.br/captive-portal/api?site=CODIGO_DA_LOJA&ssid=SOLDAMAQ-CLIENTES
 ```
 
 Resposta esperada:
@@ -70,8 +70,22 @@ Resposta esperada:
 ```json
 {
   "captive": true,
-  "user-portal-url": "http://hotspot.soldamaq.com.br/login"
+  "user-portal-url": "https://automation.soldamaq.com.br/mikrotik/portal?source=dhcp114&site=CODIGO_DA_LOJA&ssid=SOLDAMAQ-CLIENTES"
 }
 ```
 
-O `user-portal-url` aponta para a pagina local do MikroTik, preservando os macros do HotSpot (`mac`, `ip`, `link-login-only` e `link-orig`) antes de encaminhar o cliente ao portal externo.
+O `site` precisa bater com `stores.unifi_site` no portal. Para a loja Coronel, use `vx909env`.
+
+## Script por loja
+
+O script da Coronel fica em:
+
+```text
+deploy/mikrotik/stores/soldamaq-coronel-vlan400.rsc
+```
+
+Antes de importar:
+
+- confirme `hotspotInterface`, `hotspotGateway`, `hotspotNetwork` e `dhcpServer`;
+- substitua `__MIKROTIK_WEBHOOK_SECRET__` pelo valor de `MIKROTIK_WEBHOOK_SECRET`;
+- confirme que a loja esta com `auth_backend='mikrotik'` no portal.
