@@ -68,24 +68,25 @@ export function otpView({ telefone, error, sent = false }) {
 }
 
 export function temporaryAccessView({ telefone, minutes, extendedMinutes, mikrotikLogin }) {
+  const whatsappUrl = whatsappLink(telefone);
   return layout({
     title: 'Internet liberada',
     step: 3,
     mikrotikLogin,
-    body: `<div class="wait-state" data-probe-url="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" data-next-url="http://neverssl.com/">
+    body: `<div class="wait-state" data-probe-url="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png">
         <div class="logo-spinner" aria-hidden="true">
           <img src="/public/images/soldamaq-logo-campaign.png" alt="">
         </div>
         <h1>Ativando seu acesso</h1>
         <p id="wait-message">Aguarde alguns segundos enquanto confirmamos a liberacao da internet.</p>
         <p class="countdown">Verificando em <strong id="wait-count">3</strong>s</p>
-        <a class="button fallback-button" href="http://neverssl.com/" hidden>Abrir navegador</a>
+        <a class="button fallback-button" href="${escapeHtml(whatsappUrl)}" hidden>Abrir WhatsApp</a>
       </div>
       <div class="ready-state" hidden>
         <h1>Internet liberada por ${escapeHtml(minutes)} minutos</h1>
         <p>Enviamos um link para ${escapeHtml(displayPhone(telefone))} no WhatsApp.</p>
         <p>Para estender seu acesso por mais ${escapeHtml(extendedMinutes)} minutos, clique no link recebido no WhatsApp.</p>
-        <a class="button" href="http://neverssl.com/">Abrir navegador</a>
+        <a class="button" href="${escapeHtml(whatsappUrl)}">Abrir WhatsApp</a>
       </div>
       <script>
         (() => {
@@ -95,7 +96,6 @@ export function temporaryAccessView({ telefone, minutes, extendedMinutes, mikrot
           const message = document.querySelector('#wait-message');
           const fallbackButton = document.querySelector('.fallback-button');
           const probeUrl = waitState.dataset.probeUrl;
-          const nextUrl = waitState.dataset.nextUrl;
           let seconds = 3;
           let attempts = 0;
           let finished = false;
@@ -105,7 +105,6 @@ export function temporaryAccessView({ telefone, minutes, extendedMinutes, mikrot
             finished = true;
             waitState.hidden = true;
             readyState.hidden = false;
-            window.setTimeout(() => window.location.assign(nextUrl), 1800);
           }
 
           function probeInternet() {
@@ -206,4 +205,9 @@ function mikrotikLoginMarkup(login) {
     <input type="hidden" name="popup" value="false">
   </form>
   <script>document.querySelector('#mikrotik-login-form')?.submit();</script>`;
+}
+
+function whatsappLink(telefone = '') {
+  const digits = String(telefone).replace(/\D/g, '');
+  return digits ? `https://wa.me/${digits}` : 'https://wa.me/';
 }

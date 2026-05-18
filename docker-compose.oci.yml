@@ -15,6 +15,7 @@ services:
         condition: service_healthy
     volumes:
       - hotspot_portal_logs:/app/logs
+      - ./secrets/mikrotik_soldamaq_rsa:/run/secrets/mikrotik_soldamaq_rsa:ro
     networks:
       - hotspot_data
       - automation_net

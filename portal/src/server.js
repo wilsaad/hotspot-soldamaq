@@ -11,6 +11,8 @@ import {
   audit,
   createAdminStore,
   createWifiSession,
+  findAuthorizedWifiSessionForLease,
+  findRecentMikrotikLease,
   findValidationToken,
   findStore,
   getAdminDashboard,
@@ -20,12 +22,14 @@ import {
   markAuthorized,
   markOtpValidated,
   updateAdminStore,
-  updateRegistration
+  updateRegistration,
+  upsertMikrotikLease
 } from './db.js';
 import { normalizeBrazilPhone } from './phone.js';
 import { createValidationLinkToken } from './otp.js';
 import { sendOtpWebhook, sendPostLoginWebhook } from './n8n.js';
 import { authorizeGuest } from './unifi.js';
+import { authorizeMikrotikClient } from './mikrotik.js';
 import { doneView, lgpdView, otpView, temporaryAccessView, validationConfirmView, validationErrorView } from './views.js';
 import { adminDashboardView, adminPhoneView, adminSessionsView, adminStoreFormView, adminStoresView } from './adminViews.js';
 import { logger } from './logger.js';
@@ -92,6 +96,62 @@ function requestAdminAuth(res) {
 }
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
+
+app.get('/captive-portal/api', async (req, res, next) => {
+  try {
+    const authorizedSession = await findAuthorizedWifiSessionForLease({
+      site: null,
+      publicIp: requestPublicIp(req)
+    });
+
+    res.type('application/captive+json');
+    res.json(authorizedSession ? { captive: false } : {
+      captive: true,
+      'user-portal-url': config.captivePortalUrl
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+function requestPublicIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return (forwarded || req.ip || '').replace(/^::ffff:/, '');
+}
+
+function isValidMac(mac) {
+  return /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(mac);
+}
+
+app.all('/mikrotik/lease', async (req, res, next) => {
+  try {
+    const params = { ...req.query, ...req.body };
+    const secret = String(params.secret || req.headers['x-hotspot-secret'] || '');
+    if (!config.mikrotikWebhookSecret || secret !== config.mikrotikWebhookSecret) {
+      return res.status(403).json({ ok: false });
+    }
+
+    const mac = String(params.mac || '').toLowerCase();
+    const clientIp = String(params.ip || params.client_ip || '');
+    const site = String(params.site || config.unifi.defaultSite);
+    const ssid = String(params.ssid || '');
+    const status = String(params.status || 'bound');
+
+    if (!isValidMac(mac) || !clientIp) return res.status(400).json({ ok: false });
+
+    const row = await upsertMikrotikLease({
+      site,
+      mac,
+      clientIp,
+      ssid,
+      publicIp: requestPublicIp(req),
+      status
+    });
+    res.json({ ok: true, id: row.id });
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.get('/', (req, res) => res.redirect(`/portal${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`));
 
@@ -193,16 +253,26 @@ app.get('/admin/phones/:telefone', requireAdmin, async (req, res, next) => {
 app.all(['/portal', '/guest/s/:site', '/mikrotik/portal'], async (req, res, next) => {
   try {
     const hotspotParams = { ...req.query, ...req.body };
-    const mac = String(hotspotParams.mac || hotspotParams.id || '').toLowerCase();
+    let mac = String(hotspotParams.mac || hotspotParams.id || '').toLowerCase();
     const ap = String(hotspotParams.ap || '').toLowerCase();
     const ssid = String(hotspotParams.ssid || '');
     const site = String(hotspotParams.site || req.params.site || config.unifi.defaultSite);
     const hotspotLoginUrl = String(hotspotParams['link-login-only'] || hotspotParams.link_login_only || '');
     const hotspotOrigUrl = String(hotspotParams['link-orig'] || hotspotParams.link_orig || '');
-    const clientIp = String(hotspotParams.ip || '');
+    let clientIp = String(hotspotParams.ip || '');
+    let leaseMatched = false;
 
-    if (!mac || !/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(mac)) {
-      return res.status(400).send(lgpdView({ store: null, error: 'Parametro MAC ausente ou invalido.' }));
+    if (!isValidMac(mac) && hotspotParams.source === 'dhcp114') {
+      const lease = await findRecentMikrotikLease({ site, publicIp: requestPublicIp(req) });
+      if (lease) {
+        mac = lease.mac;
+        clientIp = clientIp || lease.client_ip;
+        leaseMatched = true;
+      }
+    }
+
+    if (!isValidMac(mac)) {
+      return res.status(400).send(lgpdView({ store: null, error: 'Nao localizamos sua conexao WiFi. Reconecte na rede e tente novamente.' }));
     }
 
     const store = await findStore({ site, ap });
@@ -225,22 +295,54 @@ app.all(['/portal', '/guest/s/:site', '/mikrotik/portal'], async (req, res, next
     req.session.hotspotLoginUrl = hotspotLoginUrl;
     req.session.hotspotOrigUrl = hotspotOrigUrl;
     req.session.clientIp = clientIp;
-    await audit({ event: 'portal_entry', sessionId: sessionRow.id, mac, payload: { ap, ssid, site, backend: store?.auth_backend || 'unifi' } });
+    await audit({ event: 'portal_entry', sessionId: sessionRow.id, mac, payload: { ap, ssid, site, backend: store?.auth_backend || 'unifi', lease_matched: leaseMatched } });
     let entryAuthorized = false;
     if (store?.auto_authorize_on_entry) {
       if (store.auth_backend === 'mikrotik') {
-        entryAuthorized = Boolean(hotspotLoginUrl);
-        req.session.entryAuthorized = entryAuthorized;
-        await audit({
-          event: 'entry_temporary_login_dispatched',
-          sessionId: sessionRow.id,
-          mac,
-          payload: {
-            minutes: store.entry_guest_minutes || config.tempGuestMinutes,
-            backend: 'mikrotik',
-            has_login_url: Boolean(hotspotLoginUrl)
+        try {
+          if (clientIp) {
+            const entryAuthorizeStartedAt = Date.now();
+            const mikrotikAuthorization = await authorizeMikrotikClient({
+              mac,
+              clientIp,
+              minutes: store.entry_guest_minutes || config.tempGuestMinutes,
+              kind: 'entry'
+            });
+            const entryAuthorizeDurationMs = Date.now() - entryAuthorizeStartedAt;
+            await markAuthorized({ sessionId: sessionRow.id });
+            await audit({
+              event: 'temporary_authorize',
+              sessionId: sessionRow.id,
+              mac,
+              payload: {
+                ...mikrotikAuthorization,
+                duration_ms: entryAuthorizeDurationMs
+              }
+            });
+            entryAuthorized = true;
+          } else {
+            entryAuthorized = Boolean(hotspotLoginUrl);
+            await audit({
+              event: 'entry_temporary_login_dispatched',
+              sessionId: sessionRow.id,
+              mac,
+              payload: {
+                minutes: store.entry_guest_minutes || config.tempGuestMinutes,
+                backend: 'mikrotik',
+                has_login_url: Boolean(hotspotLoginUrl)
+              }
+            });
           }
-        });
+          req.session.entryAuthorized = entryAuthorized;
+        } catch (entryAuthorizeError) {
+          logger.warn({ err: entryAuthorizeError, sessionId: sessionRow.id }, 'MikroTik entry authorization failed');
+          await audit({
+            event: 'entry_temporary_authorize_failed',
+            sessionId: sessionRow.id,
+            mac,
+            payload: { message: entryAuthorizeError.message, backend: 'mikrotik' }
+          });
+        }
       } else try {
         const entryAuthorizeStartedAt = Date.now();
         const entryAuthorization = await authorizeGuest({
@@ -451,15 +553,29 @@ app.post('/whatsapp/validate/:token', async (req, res, next) => {
     let authorizationPayload;
     let mikrotikLogin = null;
     if (row.auth_backend === 'mikrotik') {
-      mikrotikLogin = buildMikrotikLogin({
-        hotspotLoginUrl: row.hotspot_login_url,
-        hotspotOrigUrl: row.hotspot_orig_url
-      }, 'extended');
-      authorizationPayload = {
-        minutes: config.extendedGuestMinutes,
-        backend: 'mikrotik',
-        login_dispatched: Boolean(mikrotikLogin)
-      };
+      if (row.client_ip) {
+        const mikrotikAuthorization = await authorizeMikrotikClient({
+          mac: row.mac,
+          clientIp: row.client_ip,
+          minutes: config.extendedGuestMinutes,
+          kind: 'extended'
+        });
+        authorizationPayload = {
+          ...mikrotikAuthorization,
+          mode: 'ssh'
+        };
+      } else {
+        mikrotikLogin = buildMikrotikLogin({
+          hotspotLoginUrl: row.hotspot_login_url,
+          hotspotOrigUrl: row.hotspot_orig_url
+        }, 'extended');
+        authorizationPayload = {
+          minutes: config.extendedGuestMinutes,
+          backend: 'mikrotik',
+          mode: 'hotspot-login',
+          login_dispatched: Boolean(mikrotikLogin)
+        };
+      }
     } else {
       const extendedAuthorizeStartedAt = Date.now();
       const extendedAuthorization = await authorizeGuest({ site: row.unifi_site, mac: row.mac, minutes: config.extendedGuestMinutes });

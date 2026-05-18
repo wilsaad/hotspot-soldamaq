@@ -30,6 +30,56 @@ export async function createWifiSession({ storeId, mac, ap, ssid, site, hotspotL
   return result.rows[0];
 }
 
+export async function upsertMikrotikLease({ site, mac, clientIp, ssid, publicIp, status }) {
+  const result = await pool.query(
+    `insert into mikrotik_leases (site, mac, client_ip, ssid, public_ip, status)
+     values ($1, $2, $3, $4, $5, $6)
+     on conflict (site, mac, client_ip) do update set
+       ssid = excluded.ssid,
+       public_ip = excluded.public_ip,
+       status = excluded.status,
+       last_seen_at = now(),
+       updated_at = now()
+     returning *`,
+    [site, mac, clientIp, ssid || null, publicIp || null, status || 'bound']
+  );
+  return result.rows[0];
+}
+
+export async function findRecentMikrotikLease({ site, publicIp }) {
+  const result = await pool.query(
+    `select *
+     from mikrotik_leases
+     where site = $1
+       and ($2::text is null or public_ip = $2)
+       and last_seen_at > now() - interval '12 hours'
+     order by last_seen_at desc
+     limit 1`,
+    [site, publicIp || null]
+  );
+  return result.rows[0] || null;
+}
+
+export async function findAuthorizedWifiSessionForLease({ site, publicIp }) {
+  const result = await pool.query(
+    `select ws.*
+     from mikrotik_leases ml
+     join wifi_sessions ws
+       on ws.mac = ml.mac
+      and ws.client_ip = ml.client_ip
+      and ws.unifi_site = ml.site
+     where ($1::text is null or ml.site = $1)
+       and ($2::text is null or ml.public_ip = $2)
+       and ml.last_seen_at > now() - interval '12 hours'
+       and ws.autorizado = true
+       and ws.authorized_at > now() - interval '12 hours'
+     order by ws.authorized_at desc
+     limit 1`,
+    [site, publicIp || null]
+  );
+  return result.rows[0] || null;
+}
+
 export async function updateRegistration({ sessionId, nome, telefone, lgpdAccepted }) {
   const result = await pool.query(
     `update wifi_sessions

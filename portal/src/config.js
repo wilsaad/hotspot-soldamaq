@@ -21,6 +21,7 @@ export const config = {
   tempGuestMinutes: int('TEMP_GUEST_MINUTES', 7),
   extendedGuestMinutes: int('EXTENDED_GUEST_MINUTES', 120),
   validationLinkTtlSeconds: int('VALIDATION_LINK_TTL_SECONDS', 1800),
+  captivePortalUrl: process.env.CAPTIVE_PORTAL_URL || 'https://automation.soldamaq.com.br/mikrotik/portal?source=dhcp114&site=btmae4e2&ssid=SOLDAMAQ-CLIENTES',
   otpTtlSeconds: int('OTP_TTL_SECONDS', 300),
   otpResendSeconds: int('OTP_RESEND_SECONDS', 60),
   otpMaxAttempts: int('OTP_MAX_ATTEMPTS', 5),
@@ -29,6 +30,7 @@ export const config = {
   n8nSendOtpUrl: process.env.N8N_WEBHOOK_SEND_OTP_URL || '',
   n8nPostLoginUrl: process.env.N8N_WEBHOOK_POST_LOGIN_URL || '',
   n8nSharedSecret: process.env.N8N_SHARED_SECRET || '',
+  mikrotikWebhookSecret: process.env.MIKROTIK_WEBHOOK_SECRET || process.env.N8N_SHARED_SECRET || '',
   postLoginMessageEnabled: bool('POST_LOGIN_MESSAGE_ENABLED', true),
   admin: {
     username: process.env.ADMIN_USERNAME || '',
@@ -46,6 +48,11 @@ export const config = {
     entryUsername: process.env.MIKROTIK_ENTRY_USERNAME || '',
     entryPassword: process.env.MIKROTIK_ENTRY_PASSWORD || '',
     extendedUsername: process.env.MIKROTIK_EXTENDED_USERNAME || '',
-    extendedPassword: process.env.MIKROTIK_EXTENDED_PASSWORD || ''
+    extendedPassword: process.env.MIKROTIK_EXTENDED_PASSWORD || '',
+    sshHost: process.env.MIKROTIK_SSH_HOST || '',
+    sshPort: int('MIKROTIK_SSH_PORT', 22),
+    sshUsername: process.env.MIKROTIK_SSH_USERNAME || '',
+    sshPrivateKeyPath: process.env.MIKROTIK_SSH_PRIVATE_KEY_PATH || '',
+    sshReadyTimeout: int('MIKROTIK_SSH_READY_TIMEOUT_MS', 8000)
   }
 };

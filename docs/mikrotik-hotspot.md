@@ -54,3 +54,24 @@ MIKROTIK_EXTENDED_PASSWORD=...
 - O walled garden web libera o portal externo e os hosts de certificado usados antes da autenticacao.
 - O walled garden IP libera DNS para `8.8.8.8` e `8.8.4.4` em TCP/UDP 53 e HTTPS direto para `157.151.19.51`.
 - O modo usa `http-pap` no HotSpot para permitir o POST local com usuarios de perfil.
+
+## Captive portal por DHCP
+
+Em redes onde a interceptacao HTTP nativa do HotSpot nao e acionada por causa da topologia `bridge + VLAN + use-ip-firewall-for-vlan`, anuncie a API de captive portal via DHCP option 114 na rede `172.31.255.0/24`.
+
+Endpoint da API:
+
+```text
+https://automation.soldamaq.com.br/captive-portal/api
+```
+
+Resposta esperada:
+
+```json
+{
+  "captive": true,
+  "user-portal-url": "http://hotspot.soldamaq.com.br/login"
+}
+```
+
+O `user-portal-url` aponta para a pagina local do MikroTik, preservando os macros do HotSpot (`mac`, `ip`, `link-login-only` e `link-orig`) antes de encaminhar o cliente ao portal externo.
