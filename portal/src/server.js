@@ -101,10 +101,17 @@ app.get('/captive-portal/api', async (req, res, next) => {
   try {
     const requestedSite = String(req.query.site || '').trim();
     const requestedSsid = String(req.query.ssid || 'SOLDAMAQ-CLIENTES').trim();
-    const authorizedSession = await findAuthorizedWifiSessionForLease({
+    const recentLease = await findRecentMikrotikLease({
       site: requestedSite || null,
       publicIp: requestPublicIp(req)
     });
+    const authorizedSession = recentLease ? await findAuthorizedWifiSessionForLease({
+      site: recentLease.site,
+      mac: recentLease.mac,
+      clientIp: recentLease.client_ip,
+      extendedMinutes: config.extendedGuestMinutes,
+      fallbackEntryMinutes: config.tempGuestMinutes
+    }) : null;
     const portalUrl = requestedSite
       ? publicUrl(req, `/mikrotik/portal?source=dhcp114&site=${encodeURIComponent(requestedSite)}&ssid=${encodeURIComponent(requestedSsid)}`)
       : config.captivePortalUrl;
@@ -311,7 +318,8 @@ app.all(['/portal', '/guest/s/:site', '/mikrotik/portal'], async (req, res, next
               mac,
               clientIp,
               minutes: store.entry_guest_minutes || config.tempGuestMinutes,
-              kind: 'entry'
+              kind: 'entry',
+              site: store.unifi_site || site
             });
             const entryAuthorizeDurationMs = Date.now() - entryAuthorizeStartedAt;
             await markAuthorized({ sessionId: sessionRow.id });
@@ -563,7 +571,8 @@ app.post('/whatsapp/validate/:token', async (req, res, next) => {
           mac: row.mac,
           clientIp: row.client_ip,
           minutes: config.extendedGuestMinutes,
-          kind: 'extended'
+          kind: 'extended',
+          site: row.unifi_site
         });
         authorizationPayload = {
           ...mikrotikAuthorization,

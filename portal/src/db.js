@@ -50,8 +50,9 @@ export async function findRecentMikrotikLease({ site, publicIp }) {
   const result = await pool.query(
     `select *
      from mikrotik_leases
-     where site = $1
+     where ($1::text is null or site = $1)
        and ($2::text is null or public_ip = $2)
+       and status = 'bound'
        and last_seen_at > now() - interval '12 hours'
      order by last_seen_at desc
      limit 1`,
@@ -60,7 +61,7 @@ export async function findRecentMikrotikLease({ site, publicIp }) {
   return result.rows[0] || null;
 }
 
-export async function findAuthorizedWifiSessionForLease({ site, publicIp }) {
+export async function findAuthorizedWifiSessionForLease({ site, mac, clientIp, extendedMinutes, fallbackEntryMinutes }) {
   const result = await pool.query(
     `select ws.*
      from mikrotik_leases ml
@@ -68,14 +69,22 @@ export async function findAuthorizedWifiSessionForLease({ site, publicIp }) {
        on ws.mac = ml.mac
       and ws.client_ip = ml.client_ip
       and ws.unifi_site = ml.site
-     where ($1::text is null or ml.site = $1)
-       and ($2::text is null or ml.public_ip = $2)
+     left join stores st on st.id = ws.store_id
+     where ml.site = $1
+       and ml.mac = $2
+       and ml.client_ip = $3
+       and ml.status = 'bound'
        and ml.last_seen_at > now() - interval '12 hours'
        and ws.autorizado = true
-       and ws.authorized_at > now() - interval '12 hours'
+       and ws.authorized_at > now() - (
+         case
+           when ws.otp_validado = true then make_interval(mins => $4::int)
+           else make_interval(mins => coalesce(st.entry_guest_minutes, $5::int))
+         end
+       )
      order by ws.authorized_at desc
      limit 1`,
-    [site, publicIp || null]
+    [site, mac, clientIp, extendedMinutes, fallbackEntryMinutes]
   );
   return result.rows[0] || null;
 }

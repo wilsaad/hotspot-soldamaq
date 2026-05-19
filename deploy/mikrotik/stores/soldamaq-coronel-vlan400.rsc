@@ -4,10 +4,10 @@
 
 :local storeSite "vx909env"
 :local ssid "SOLDAMAQ-CLIENTES"
-:local hotspotInterface "vlan400-Piloto-HOTSPOT"
+:local hotspotInterface "vlan400-SOLDAMAQ CLIENTES"
 :local hotspotGateway "172.31.255.1"
 :local hotspotNetwork "172.31.255.0/24"
-:local dhcpServer "SERVER-HOTSPOT"
+:local dhcpServer "server6-WIFI SOLDAMAQ CLIENTES"
 :local dhcpOptionName "soldamaq-captive-api"
 :local portalBase "https://automation.soldamaq.com.br"
 :local portalHost "automation.soldamaq.com.br"
@@ -80,6 +80,6 @@
 }
 
 /ip dhcp-server
-set [find where name=$dhcpServer] lease-time=5m lease-script=(":local portal \"" . $leaseWebhookUrl . "\"; :local secret \"" . $portalSecret . "\"; :local site \"" . $storeSite . "\"; :local ssid \"" . $ssid . "\"; :if (\$leaseBound = \"1\") do={ :local mac \$leaseActMAC; :local ip \$leaseActIP; :local c (\"SOLDAMAQ-AUTO-7M \" . \$mac); :local s (\"soldamaq-\" . \$ip); /ip hotspot ip-binding remove [find comment=\$c]; /ip hotspot ip-binding remove [find mac-address=\$mac address=\$ip]; /system scheduler remove [find name=\$s]; /ip hotspot ip-binding add mac-address=\$mac address=\$ip type=bypassed comment=\$c; /system scheduler add name=\$s interval=7m on-event=(\"/ip hotspot ip-binding remove [find comment=\\\"\" . \$c . \"\\\"]; /system scheduler remove [find name=\\\"\" . \$s . \"\\\"]\"); /tool fetch url=(\$portal . \"?secret=\" . \$secret . \"&site=\" . \$site . \"&ssid=\" . \$ssid . \"&mac=\" . \$mac . \"&ip=\" . \$ip . \"&status=bound\") keep-result=no; } else={ :local mac \$leaseActMAC; :local ip \$leaseActIP; :local c (\"SOLDAMAQ-AUTO-7M \" . \$mac); :local s (\"soldamaq-\" . \$ip); /ip hotspot ip-binding remove [find comment=\$c]; /ip hotspot ip-binding remove [find mac-address=\$mac address=\$ip]; /system scheduler remove [find name=\$s]; /tool fetch url=(\$portal . \"?secret=\" . \$secret . \"&site=\" . \$site . \"&ssid=\" . \$ssid . \"&mac=\" . \$mac . \"&ip=\" . \$ip . \"&status=unbound\") keep-result=no; }")
+set [find where name=$dhcpServer] lease-time=5m lease-script=(":local portal \"" . $leaseWebhookUrl . "\"; :local secret \"" . $portalSecret . "\"; :local site \"" . $storeSite . "\"; :local ssid \"" . $ssid . "\"; :if (\$leaseBound = \"1\") do={ :local mac \$leaseActMAC; :local ip \$leaseActIP; :local c (\"SOLDAMAQ-AUTO-7M \" . \$mac); :local s (\"soldamaq-\" . \$ip); /ip hotspot ip-binding remove [find comment=\$c]; /ip hotspot ip-binding remove [find mac-address=\$mac address=\$ip]; /system scheduler remove [find name=\$s]; /ip hotspot ip-binding add mac-address=\$mac address=\$ip type=bypassed comment=\$c; /system scheduler add name=\$s interval=7m on-event=(\"/ip hotspot ip-binding remove [find comment=\\\"\" . \$c . \"\\\"]; /ip hotspot active remove [find mac-address=\\\"\" . \$mac . \"\\\"]; /ip hotspot host remove [find mac-address=\\\"\" . \$mac . \"\\\"]; /ip dhcp-server lease remove [find mac-address=\\\"\" . \$mac . \"\\\" address=\\\"\" . \$ip . \"\\\"]; /ip firewall connection remove [find src-address~\\\"\" . \$ip . \"\\\"]; /ip firewall connection remove [find dst-address~\\\"\" . \$ip . \"\\\"]; /system scheduler remove [find name=\\\"\" . \$s . \"\\\"]\"); /tool fetch url=(\$portal . \"?secret=\" . \$secret . \"&site=\" . \$site . \"&ssid=\" . \$ssid . \"&mac=\" . \$mac . \"&ip=\" . \$ip . \"&status=bound\") keep-result=no; } else={ :local mac \$leaseActMAC; :local ip \$leaseActIP; :local c (\"SOLDAMAQ-AUTO-7M \" . \$mac); :local s (\"soldamaq-\" . \$ip); /ip hotspot ip-binding remove [find comment=\$c]; /ip hotspot ip-binding remove [find mac-address=\$mac address=\$ip]; /ip hotspot active remove [find mac-address=\$mac]; /ip hotspot host remove [find mac-address=\$mac]; /system scheduler remove [find name=\$s]; /ip firewall connection remove [find src-address~\$ip]; /ip firewall connection remove [find dst-address~\$ip]; /tool fetch url=(\$portal . \"?secret=\" . \$secret . \"&site=\" . \$site . \"&ssid=\" . \$ssid . \"&mac=\" . \$mac . \"&ip=\" . \$ip . \"&status=unbound\") keep-result=no; }")
 
 :put ("SOLDAMAQ Coronel hotspot configurado. Captive API: " . $captiveApiUrl)

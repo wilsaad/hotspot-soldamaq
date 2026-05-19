@@ -29,9 +29,19 @@ async function privateKey() {
   return fs.readFile(config.mikrotik.sshPrivateKeyPath, 'utf8');
 }
 
-async function runCommand(command) {
+function endpointForSite(site) {
+  const rawEndpoint = config.mikrotik.sshHostsBySite?.[site] || config.mikrotik.sshHost || '';
+  const [host, port] = String(rawEndpoint).split(':');
+  return {
+    host,
+    port: Number.parseInt(port || String(config.mikrotik.sshPort), 10)
+  };
+}
+
+async function runCommand(command, { site } = {}) {
   const key = await privateKey();
-  if (!config.mikrotik.sshHost || !config.mikrotik.sshUsername || !key) {
+  const endpoint = endpointForSite(site);
+  if (!endpoint.host || !config.mikrotik.sshUsername || !key) {
     throw new Error('MikroTik SSH is not configured');
   }
 
@@ -65,8 +75,8 @@ async function runCommand(command) {
       })
       .on('error', reject)
       .connect({
-        host: config.mikrotik.sshHost,
-        port: config.mikrotik.sshPort,
+        host: endpoint.host,
+        port: endpoint.port,
         username: config.mikrotik.sshUsername,
         privateKey: key,
         readyTimeout: config.mikrotik.sshReadyTimeout,
@@ -78,14 +88,22 @@ async function runCommand(command) {
   });
 }
 
-export async function authorizeMikrotikClient({ mac, clientIp, minutes, kind = 'extended' }) {
+export async function authorizeMikrotikClient({ mac, clientIp, minutes, kind = 'extended', site }) {
   if (!mac || !clientIp) throw new Error('MikroTik authorization requires mac and clientIp');
 
   const comment = bindingComment({ mac, kind });
   const scheduler = schedulerName({ clientIp, kind });
   const existingSchedulerPattern = schedulerPattern(clientIp);
   const interval = durationInterval(minutes);
-  const removeCommand = `/ip hotspot ip-binding remove [find comment=${quote(comment)}]; /system scheduler remove [find name=${quote(scheduler)}]`;
+  const removeCommand = [
+    `/ip hotspot ip-binding remove [find comment=${quote(comment)}]`,
+    `/ip hotspot active remove [find mac-address=${mac}]`,
+    `/ip hotspot host remove [find mac-address=${mac}]`,
+    `/ip dhcp-server lease remove [find mac-address=${mac} address=${clientIp}]`,
+    `/ip firewall connection remove [find src-address~${quote(clientIp)}]`,
+    `/ip firewall connection remove [find dst-address~${quote(clientIp)}]`,
+    `/system scheduler remove [find name=${quote(scheduler)}]`
+  ].join('; ');
   const command = [
     `/ip hotspot ip-binding remove [find comment=${quote(comment)}]`,
     `/ip hotspot ip-binding remove [find address=${clientIp}]`,
@@ -96,9 +114,10 @@ export async function authorizeMikrotikClient({ mac, clientIp, minutes, kind = '
     `/system scheduler add name=${quote(scheduler)} interval=${interval} on-event=${quote(removeCommand)}`
   ].join('; ');
 
-  const result = await runCommand(command);
+  const result = await runCommand(command, { site });
   return {
     backend: 'mikrotik',
+    site,
     mac,
     client_ip: clientIp,
     minutes,

@@ -8,6 +8,15 @@ const bool = (name, fallback = false) => {
   if (value === undefined) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
 };
+const json = (name, fallback = {}) => {
+  const value = process.env[name];
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
@@ -50,6 +59,7 @@ export const config = {
     extendedUsername: process.env.MIKROTIK_EXTENDED_USERNAME || '',
     extendedPassword: process.env.MIKROTIK_EXTENDED_PASSWORD || '',
     sshHost: process.env.MIKROTIK_SSH_HOST || '',
+    sshHostsBySite: json('MIKROTIK_SSH_HOSTS_BY_SITE'),
     sshPort: int('MIKROTIK_SSH_PORT', 22),
     sshUsername: process.env.MIKROTIK_SSH_USERNAME || '',
     sshPrivateKeyPath: process.env.MIKROTIK_SSH_PRIVATE_KEY_PATH || '',
