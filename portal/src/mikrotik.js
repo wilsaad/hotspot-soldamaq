@@ -99,7 +99,6 @@ export async function authorizeMikrotikClient({ mac, clientIp, minutes, kind = '
     `/ip hotspot ip-binding remove [find comment=${quote(comment)}]`,
     `/ip hotspot active remove [find mac-address=${mac}]`,
     `/ip hotspot host remove [find mac-address=${mac}]`,
-    `/ip dhcp-server lease remove [find mac-address=${mac} address=${clientIp}]`,
     `/ip firewall connection remove [find src-address~${quote(clientIp)}]`,
     `/ip firewall connection remove [find dst-address~${quote(clientIp)}]`,
     `/system scheduler remove [find name=${quote(scheduler)}]`
