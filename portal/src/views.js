@@ -208,6 +208,5 @@ function mikrotikLoginMarkup(login) {
 }
 
 function whatsappLink(telefone = '') {
-  const digits = String(telefone).replace(/\D/g, '');
-  return digits ? `https://wa.me/${digits}` : 'https://wa.me/';
+  return 'https://wa.me/556798591268';
 }
