@@ -250,9 +250,9 @@ export function adminStoreFormView({ store = {}, action, title, error = '' }) {
           ${input('URL de avaliacao Google', 'google_review_url', store.google_review_url, 'https://www.google.com/...')}
           <label class="check">
             <input type="checkbox" name="auto_authorize_on_entry" ${store.auto_authorize_on_entry ? 'checked' : ''}>
-            <span>Liberar internet automaticamente na entrada</span>
+            <span>Liberar internet temporaria apos cadastro</span>
           </label>
-          ${input('Minutos liberados na entrada', 'entry_guest_minutes', store.entry_guest_minutes || 7, '7')}
+          ${input('Minutos temporarios apos cadastro', 'entry_guest_minutes', store.entry_guest_minutes || 7, '7')}
           <label>AP aliases
             <textarea name="ap_aliases" rows="4" placeholder="Um AP por linha ou separados por virgula">${escapeHtml((store.ap_aliases || []).join('\n'))}</textarea>
           </label>

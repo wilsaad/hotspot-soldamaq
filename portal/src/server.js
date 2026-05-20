@@ -351,89 +351,11 @@ app.all(['/portal', '/guest/s/:site', '/mikrotik/portal'], async (req, res, next
     req.session.hotspotOrigUrl = hotspotOrigUrl;
     req.session.clientIp = clientIp;
     await audit({ event: 'portal_entry', sessionId: sessionRow.id, mac, payload: { ap, ssid, site, backend: store?.auth_backend || 'unifi', lease_matched: leaseMatched } });
-    let entryAuthorized = false;
-    if (store?.auto_authorize_on_entry) {
-      if (store.auth_backend === 'mikrotik') {
-        try {
-          if (clientIp) {
-            const entryAuthorizeStartedAt = Date.now();
-            const mikrotikAuthorization = await authorizeMikrotikClient({
-              mac,
-              clientIp,
-              minutes: store.entry_guest_minutes || config.tempGuestMinutes,
-              kind: 'entry',
-              site: store.unifi_site || site
-            });
-            const entryAuthorizeDurationMs = Date.now() - entryAuthorizeStartedAt;
-            await markAuthorized({ sessionId: sessionRow.id });
-            await audit({
-              event: 'temporary_authorize',
-              sessionId: sessionRow.id,
-              mac,
-              payload: {
-                ...mikrotikAuthorization,
-                duration_ms: entryAuthorizeDurationMs
-              }
-            });
-            entryAuthorized = true;
-          } else {
-            entryAuthorized = Boolean(hotspotLoginUrl);
-            await audit({
-              event: 'entry_temporary_login_dispatched',
-              sessionId: sessionRow.id,
-              mac,
-              payload: {
-                minutes: store.entry_guest_minutes || config.tempGuestMinutes,
-                backend: 'mikrotik',
-                has_login_url: Boolean(hotspotLoginUrl)
-              }
-            });
-          }
-          req.session.entryAuthorized = entryAuthorized;
-        } catch (entryAuthorizeError) {
-          logger.warn({ err: entryAuthorizeError, sessionId: sessionRow.id }, 'MikroTik entry authorization failed');
-          await audit({
-            event: 'entry_temporary_authorize_failed',
-            sessionId: sessionRow.id,
-            mac,
-            payload: { message: entryAuthorizeError.message, backend: 'mikrotik' }
-          });
-        }
-      } else try {
-        const entryAuthorizeStartedAt = Date.now();
-        const entryAuthorization = await authorizeGuest({
-          site,
-          mac,
-          minutes: store.entry_guest_minutes || config.tempGuestMinutes
-        });
-        const entryAuthorizeDurationMs = Date.now() - entryAuthorizeStartedAt;
-        await markAuthorized({ sessionId: sessionRow.id });
-        await audit({
-          event: 'entry_temporary_authorize',
-          sessionId: sessionRow.id,
-          mac,
-          payload: {
-            minutes: store.entry_guest_minutes || config.tempGuestMinutes,
-            duration_ms: entryAuthorizeDurationMs,
-            unifi: summarizeUnifiAuthorization(entryAuthorization)
-          }
-        });
-        req.session.entryAuthorized = true;
-        entryAuthorized = true;
-      } catch (entryAuthorizeError) {
-        logger.warn({ err: entryAuthorizeError, sessionId: sessionRow.id }, 'entry authorization failed');
-        await audit({
-          event: 'entry_temporary_authorize_failed',
-          sessionId: sessionRow.id,
-          mac,
-          payload: { message: entryAuthorizeError.message }
-        });
-      }
-    }
+    req.session.entryAuthorized = false;
     res.send(lgpdView({
       store,
-      entryAuthorized,
-      mikrotikLogin: entryAuthorized ? buildMikrotikLogin(req.session, 'entry') : null
+      entryAuthorized: false,
+      mikrotikLogin: null
     }));
   } catch (error) {
     next(error);
@@ -496,26 +418,69 @@ async function sendValidationLink(req, res, next) {
     const token = await createValidationLinkToken({ telefone: req.session.telefone, sessionId: req.session.wifiSessionId });
     const validationPath = `/whatsapp/validate/${encodeURIComponent(token.token)}`;
     const validationUrl = publicUrl(req, validationPath);
+    const temporaryMinutes = req.session.store?.entry_guest_minutes || config.tempGuestMinutes;
+    let mikrotikLogin = null;
 
-    if (!req.session.entryAuthorized && req.session.store?.auth_backend !== 'mikrotik') {
-      const tempAuthorizeStartedAt = Date.now();
-      const tempAuthorization = await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: config.tempGuestMinutes });
-      const tempAuthorizeDurationMs = Date.now() - tempAuthorizeStartedAt;
-      await markAuthorized({ sessionId: req.session.wifiSessionId });
-      await audit({
-        event: 'temporary_authorize',
-        sessionId: req.session.wifiSessionId,
-        telefone: req.session.telefone,
-        mac: req.session.mac,
-        payload: {
-          minutes: config.tempGuestMinutes,
-          duration_ms: tempAuthorizeDurationMs,
-          unifi: summarizeUnifiAuthorization(tempAuthorization)
+    if (!req.session.entryAuthorized) {
+      if (req.session.store?.auth_backend === 'mikrotik') {
+        if (req.session.clientIp) {
+          const tempAuthorizeStartedAt = Date.now();
+          const mikrotikAuthorization = await authorizeMikrotikClient({
+            mac: req.session.mac,
+            clientIp: req.session.clientIp,
+            minutes: temporaryMinutes,
+            kind: 'entry',
+            site: req.session.store?.unifi_site || req.session.site
+          });
+          const tempAuthorizeDurationMs = Date.now() - tempAuthorizeStartedAt;
+          await markAuthorized({ sessionId: req.session.wifiSessionId });
+          await audit({
+            event: 'temporary_authorize_after_registration',
+            sessionId: req.session.wifiSessionId,
+            telefone: req.session.telefone,
+            mac: req.session.mac,
+            payload: {
+              ...mikrotikAuthorization,
+              minutes: temporaryMinutes,
+              duration_ms: tempAuthorizeDurationMs
+            }
+          });
+          req.session.entryAuthorized = true;
+        } else {
+          mikrotikLogin = buildMikrotikLogin(req.session, 'entry');
+          req.session.entryAuthorized = Boolean(mikrotikLogin);
+          await audit({
+            event: 'temporary_login_after_registration',
+            sessionId: req.session.wifiSessionId,
+            telefone: req.session.telefone,
+            mac: req.session.mac,
+            payload: {
+              minutes: temporaryMinutes,
+              has_login_url: Boolean(mikrotikLogin)
+            }
+          });
         }
-      });
+      } else {
+        const tempAuthorizeStartedAt = Date.now();
+        const tempAuthorization = await authorizeGuest({ site: req.session.site, mac: req.session.mac, minutes: temporaryMinutes });
+        const tempAuthorizeDurationMs = Date.now() - tempAuthorizeStartedAt;
+        await markAuthorized({ sessionId: req.session.wifiSessionId });
+        await audit({
+          event: 'temporary_authorize_after_registration',
+          sessionId: req.session.wifiSessionId,
+          telefone: req.session.telefone,
+          mac: req.session.mac,
+          payload: {
+            minutes: temporaryMinutes,
+            duration_ms: tempAuthorizeDurationMs,
+            unifi: summarizeUnifiAuthorization(tempAuthorization)
+          }
+        });
+        req.session.entryAuthorized = true;
+      }
     }
 
-    const mensagem = `Soldamaq: sua internet foi liberada por ${config.tempGuestMinutes} minutos. Para estender por mais ${config.extendedGuestMinutes} minutos, valide seu WhatsApp neste link: ${validationUrl}`;
+    const mensagem = `Soldamaq: sua internet foi liberada por ${temporaryMinutes} minutos. Para estender por mais ${config.extendedGuestMinutes} minutos, valide seu WhatsApp neste link: ${validationUrl}`;
     const webhookPayload = {
       nome: req.session.nome,
       telefone: req.session.telefone,
@@ -554,11 +519,9 @@ async function sendValidationLink(req, res, next) {
 
     res.send(temporaryAccessView({
       telefone: req.session.telefone,
-      minutes: config.tempGuestMinutes,
+      minutes: temporaryMinutes,
       extendedMinutes: config.extendedGuestMinutes,
-      mikrotikLogin: req.session.store?.auth_backend === 'mikrotik' && !req.session.entryAuthorized
-        ? buildMikrotikLogin(req.session, 'entry')
-        : null
+      mikrotikLogin
     }));
   } catch (error) {
     if (error.status === 429) return res.status(429).send(otpView({ telefone: req.session.telefone, error: error.message }));
