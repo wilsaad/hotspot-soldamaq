@@ -198,6 +198,8 @@ export async function getAdminDashboard() {
     `),
     pool.query(`
       select
+        st.id as store_id,
+        st.code as store_code,
         coalesce(st.name, 'Sem loja') as store_name,
         count(ws.*)::int as sessions,
         count(distinct nullif(ws.telefone, ''))::int as unique_phones,
@@ -206,13 +208,14 @@ export async function getAdminDashboard() {
         max(ws.created_at) as last_seen
       from wifi_sessions ws
       left join stores st on st.id = ws.store_id
-      group by coalesce(st.name, 'Sem loja')
+      group by st.id, st.code, coalesce(st.name, 'Sem loja')
       order by sessions desc
       limit 20
     `),
     pool.query(`
       select
         ws.id,
+        ws.store_id,
         coalesce(st.name, 'Sem loja') as store_name,
         ws.nome,
         ws.telefone,
@@ -253,6 +256,7 @@ export async function getAdminDashboard() {
     pool.query(`
       select
         ws.id,
+        ws.store_id,
         coalesce(st.name, 'Sem loja') as store_name,
         ws.nome,
         ws.telefone,
@@ -309,6 +313,206 @@ export async function getAdminStores() {
 export async function getAdminStore(id) {
   const result = await pool.query('select * from stores where id = $1 limit 1', [id]);
   return result.rows[0] || null;
+}
+
+export async function getAdminStoreDashboard(id) {
+  const [
+    store,
+    clients,
+    recentSessions,
+    dailyTrend
+  ] = await Promise.all([
+    pool.query(`
+      select
+        st.*,
+        count(ws.*)::int as sessions,
+        count(distinct nullif(ws.telefone, ''))::int as unique_phones,
+        count(distinct ws.mac)::int as unique_devices,
+        count(*) filter (where ws.otp_validado)::int as otp_validated,
+        count(*) filter (where ws.autorizado)::int as authorized,
+        count(*) filter (where ws.created_at >= now() - interval '24 hours')::int as sessions_24h,
+        max(ws.created_at) as last_seen,
+        extract(epoch from avg(ws.authorized_at - ws.created_at) filter (where ws.authorized_at is not null))::int as avg_seconds_to_authorize
+      from stores st
+      left join wifi_sessions ws on ws.store_id = st.id
+      where st.id = $1
+      group by st.id
+    `, [id]),
+    pool.query(`
+      with ordered as (
+        select
+          ws.*,
+          lag(ws.created_at) over (partition by ws.telefone order by ws.created_at) as previous_seen
+        from wifi_sessions ws
+        where ws.store_id = $1
+          and ws.telefone is not null
+          and ws.telefone <> ''
+      )
+      select
+        telefone,
+        max(nome) filter (where nome is not null and nome <> '') as nome,
+        count(*)::int as visits,
+        count(distinct mac)::int as devices,
+        count(*) filter (where otp_validado)::int as otp_validated,
+        count(*) filter (where autorizado)::int as authorized,
+        min(created_at) as first_seen,
+        max(created_at) as last_seen,
+        round(avg(extract(epoch from (created_at - previous_seen))) filter (where previous_seen is not null) / 60)::int as avg_minutes_between_visits
+      from ordered
+      group by telefone
+      order by last_seen desc
+      limit 250
+    `, [id]),
+    pool.query(`
+      select
+        ws.id,
+        ws.store_id,
+        coalesce(st.name, 'Sem loja') as store_name,
+        ws.nome,
+        ws.telefone,
+        ws.mac,
+        ws.ap,
+        ws.ssid,
+        ws.otp_validado,
+        ws.autorizado,
+        ws.created_at,
+        ws.authorized_at,
+        extract(epoch from (ws.authorized_at - ws.created_at))::int as seconds_to_authorize
+      from wifi_sessions ws
+      left join stores st on st.id = ws.store_id
+      where ws.store_id = $1
+      order by ws.created_at desc
+      limit 80
+    `, [id]),
+    pool.query(`
+      with days as (
+        select generate_series(current_date - interval '13 days', current_date, interval '1 day') as day
+      )
+      select
+        to_char(days.day, 'DD/MM') as label,
+        count(ws.id)::int as sessions,
+        count(distinct nullif(ws.telefone, ''))::int as phones
+      from days
+      left join wifi_sessions ws
+        on ws.store_id = $1
+       and ws.created_at >= days.day
+       and ws.created_at < days.day + interval '1 day'
+      group by days.day
+      order by days.day
+    `, [id])
+  ]);
+
+  return {
+    store: store.rows[0] || null,
+    clients: clients.rows,
+    recentSessions: recentSessions.rows,
+    dailyTrend: dailyTrend.rows
+  };
+}
+
+export async function getAdminStoreClientDetails(storeId, telefone) {
+  const [
+    store,
+    profile,
+    sessions,
+    crossStores
+  ] = await Promise.all([
+    getAdminStore(storeId),
+    pool.query(`
+      with ordered as (
+        select
+          ws.*,
+          lag(ws.created_at) over (partition by ws.telefone order by ws.created_at) as previous_seen
+        from wifi_sessions ws
+        where ws.store_id = $1 and ws.telefone = $2
+      )
+      select
+        telefone,
+        max(nome) filter (where nome is not null and nome <> '') as nome,
+        count(*)::int as visits,
+        count(distinct mac)::int as devices,
+        count(*) filter (where otp_validado)::int as otp_validated,
+        count(*) filter (where autorizado)::int as authorized,
+        min(created_at) as first_seen,
+        max(created_at) as last_seen,
+        round(avg(extract(epoch from (created_at - previous_seen))) filter (where previous_seen is not null) / 60)::int as avg_minutes_between_visits,
+        extract(epoch from avg(authorized_at - created_at) filter (where authorized_at is not null))::int as avg_seconds_to_authorize
+      from ordered
+      group by telefone
+    `, [storeId, telefone]),
+    pool.query(`
+      select
+        ws.id,
+        ws.store_id,
+        coalesce(st.name, 'Sem loja') as store_name,
+        ws.nome,
+        ws.telefone,
+        ws.mac,
+        ws.ap,
+        ws.ssid,
+        ws.client_ip,
+        ws.otp_validado,
+        ws.autorizado,
+        ws.created_at,
+        ws.authorized_at,
+        extract(epoch from (ws.created_at - lag(ws.created_at) over (partition by ws.telefone order by ws.created_at)))::int as seconds_since_previous,
+        extract(epoch from (ws.authorized_at - ws.created_at))::int as seconds_to_authorize
+      from wifi_sessions ws
+      left join stores st on st.id = ws.store_id
+      where ws.store_id = $1 and ws.telefone = $2
+      order by ws.created_at desc
+      limit 200
+    `, [storeId, telefone]),
+    pool.query(`
+      select
+        st.id as store_id,
+        coalesce(st.name, 'Sem loja') as store_name,
+        count(*)::int as visits,
+        max(ws.created_at) as last_seen
+      from wifi_sessions ws
+      left join stores st on st.id = ws.store_id
+      where ws.telefone = $1
+      group by st.id, coalesce(st.name, 'Sem loja')
+      order by visits desc, last_seen desc
+    `, [telefone])
+  ]);
+
+  return {
+    store,
+    profile: profile.rows[0] || null,
+    sessions: sessions.rows,
+    crossStores: crossStores.rows
+  };
+}
+
+export async function getAdminSessionDetails(id) {
+  const [session, auditLogs] = await Promise.all([
+    pool.query(`
+      select
+        ws.*,
+        coalesce(st.name, 'Sem loja') as store_name,
+        st.code as store_code,
+        st.auth_backend,
+        st.google_review_url,
+        extract(epoch from (ws.authorized_at - ws.created_at))::int as seconds_to_authorize
+      from wifi_sessions ws
+      left join stores st on st.id = ws.store_id
+      where ws.id = $1
+      limit 1
+    `, [id]),
+    pool.query(`
+      select id, event, telefone, mac, payload, created_at
+      from audit_logs
+      where wifi_session_id = $1
+      order by created_at desc
+      limit 100
+    `, [id])
+  ]);
+
+  return {
+    session: session.rows[0] || null,
+    auditLogs: auditLogs.rows
+  };
 }
 
 export async function createAdminStore(store) {
@@ -376,6 +580,7 @@ export async function getAdminPhoneDetails(telefone) {
     pool.query(`
       select
         ws.id,
+        ws.store_id,
         coalesce(st.name, 'Sem loja') as store_name,
         ws.nome,
         ws.telefone,

@@ -35,7 +35,7 @@ export function adminDashboardView({ data }) {
     body: `<section class="hero">
         <div>
           <h1>Dados coletados no WiFi</h1>
-          <p>Visao operacional das autenticacoes, telefones recorrentes e jornada dos clientes.</p>
+          <p>Visao executiva por loja, clientes recorrentes e jornada de liberacao do acesso.</p>
         </div>
       </section>
 
@@ -56,7 +56,7 @@ export function adminDashboardView({ data }) {
           ${table({
             headers: ['Loja', 'Sessoes', 'Telefones', 'OTP', 'Autorizados', 'Ultimo acesso'],
             rows: data.byStore.map((row) => [
-              row.store_name,
+              row.store_id ? raw(storeLink(row.store_id, row.store_name)) : row.store_name,
               row.sessions,
               row.unique_phones,
               row.otp_validated,
@@ -150,9 +150,72 @@ export function adminStoresView({ stores }) {
             row.sessions,
             row.unique_phones,
             row.google_review_url ? raw('<span class="badge ok">Configurado</span>') : raw('<span class="badge muted">Pendente</span>'),
-            raw(`<a href="/admin/stores/${row.id}/edit">Editar</a>`)
+            raw(`<div class="row-actions"><a href="/admin/stores/${row.id}">Abrir</a><a href="/admin/stores/${row.id}/edit">Editar</a></div>`)
           ])
         })}
+      </article>`
+  });
+}
+
+export function adminStoreDetailView({ store, clients, recentSessions, dailyTrend }) {
+  return adminLayout({
+    title: store?.name || 'Loja Hotspot',
+    body: `<section class="hero compact">
+        <div>
+          <span class="kicker">Loja ${escapeHtml(store?.code || store?.id || '')}</span>
+          <h1>${escapeHtml(store?.name || 'Loja')}</h1>
+          <p>${escapeHtml([store?.city, store?.state].filter(Boolean).join('/') || store?.unifi_site || '')}</p>
+        </div>
+        <div class="hero-actions">
+          <a class="button secondary" href="/admin/stores">Lojas</a>
+          <a class="button" href="/admin/stores/${store.id}/edit">Editar</a>
+        </div>
+      </section>
+
+      <section class="metrics">
+        ${metric('Sessoes', store?.sessions || 0)}
+        ${metric('Clientes', store?.unique_phones || 0)}
+        ${metric('Dispositivos', store?.unique_devices || 0)}
+        ${metric('Autorizados', `${percent(store?.authorized, store?.sessions)}%`)}
+        ${metric('Ultimas 24h', store?.sessions_24h || 0)}
+        ${metric('Liberacao media', seconds(store?.avg_seconds_to_authorize))}
+      </section>
+
+      <section class="grid two store-overview">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Clientes da loja</h2>
+            <span class="panel-meta">${escapeHtml(clients.length)} registros</span>
+          </div>
+          ${table({
+            headers: ['Cliente', 'Telefone', 'Visitas', 'Dispositivos', 'Autorizados', 'Ultimo acesso', 'Media entre visitas'],
+            rows: clients.map((row) => [
+              raw(`<a class="client-name" href="/admin/stores/${store.id}/clients/${encodeURIComponent(row.telefone)}">${escapeHtml(row.nome || 'Cliente')}</a>`),
+              raw(phoneLink(row.telefone, store.id)),
+              row.visits,
+              row.devices,
+              `${percent(row.authorized, row.visits)}%`,
+              formatDate(row.last_seen),
+              minutes(row.avg_minutes_between_visits)
+            ])
+          })}
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Movimento 14 dias</h2>
+            <span class="panel-meta">sessoes/clientes</span>
+          </div>
+          ${trendBars(dailyTrend)}
+        </article>
+      </section>
+
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Sessoes recentes na loja</h2>
+          <a href="/admin/sessions">Todas sessoes</a>
+        </div>
+        ${sessionsTable(recentSessions, { storeId: store.id })}
       </article>`
   });
 }
@@ -228,8 +291,8 @@ export function adminPhoneView({ profile, sessions, telefone }) {
         ${table({
           headers: ['Data', 'Loja', 'Nome', 'MAC', 'AP', 'SSID', 'Desde anterior', 'Liberacao', 'Status'],
           rows: sessions.map((row) => [
-            formatDate(row.created_at),
-            row.store_name,
+            raw(sessionLink(row.id, formatDate(row.created_at))),
+            row.store_id ? raw(storeLink(row.store_id, row.store_name)) : row.store_name,
             row.nome || '',
             row.mac,
             row.ap || '',
@@ -243,20 +306,129 @@ export function adminPhoneView({ profile, sessions, telefone }) {
   });
 }
 
+export function adminStoreClientView({ store, profile, sessions, crossStores, telefone }) {
+  return adminLayout({
+    title: 'Cliente Hotspot',
+    body: `<section class="hero compact">
+        <div>
+          <span class="kicker">${escapeHtml(store?.name || 'Loja')}</span>
+          <h1>${escapeHtml(displayPhone(telefone))}</h1>
+          <p>${escapeHtml(profile?.nome || 'Cliente identificado pelo telefone')}</p>
+        </div>
+        <div class="hero-actions">
+          <a class="button secondary" href="/admin/stores/${store.id}">Voltar para loja</a>
+        </div>
+      </section>
+
+      <section class="metrics">
+        ${metric('Visitas na loja', profile?.visits || 0)}
+        ${metric('Dispositivos', profile?.devices || 0)}
+        ${metric('Autorizados', `${percent(profile?.authorized, profile?.visits)}%`)}
+        ${metric('Primeiro acesso', formatDate(profile?.first_seen))}
+        ${metric('Ultimo acesso', formatDate(profile?.last_seen))}
+        ${metric('Liberacao media', seconds(profile?.avg_seconds_to_authorize))}
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Historico nesta loja</h2>
+          </div>
+          ${table({
+            headers: ['Data', 'MAC', 'IP', 'AP', 'SSID', 'Desde anterior', 'Liberacao', 'Status'],
+            rows: sessions.map((row) => [
+              raw(sessionLink(row.id, formatDate(row.created_at))),
+              row.mac,
+              row.client_ip || '',
+              row.ap || '',
+              row.ssid || '',
+              seconds(row.seconds_since_previous),
+              seconds(row.seconds_to_authorize),
+              status(row)
+            ])
+          })}
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Presenca em outras lojas</h2>
+          </div>
+          ${table({
+            headers: ['Loja', 'Visitas', 'Ultimo acesso'],
+            rows: crossStores.map((row) => [
+              row.store_id ? raw(storeLink(row.store_id, row.store_name)) : row.store_name,
+              row.visits,
+              formatDate(row.last_seen)
+            ])
+          })}
+        </article>
+      </section>`
+  });
+}
+
+export function adminSessionView({ session, auditLogs }) {
+  return adminLayout({
+    title: 'Detalhe da sessao',
+    body: `<section class="hero compact">
+        <div>
+          <span class="kicker">${escapeHtml(session?.store_name || 'Sessao')}</span>
+          <h1>${escapeHtml(session?.nome || displayPhone(session?.telefone || '') || session?.mac || 'Cliente')}</h1>
+          <p>${escapeHtml(session?.mac || '')}</p>
+        </div>
+        <div class="hero-actions">
+          ${session?.store_id ? `<a class="button secondary" href="/admin/stores/${session.store_id}">Loja</a>` : ''}
+          ${session?.telefone && session?.store_id ? `<a class="button" href="/admin/stores/${session.store_id}/clients/${encodeURIComponent(session.telefone)}">Cliente</a>` : ''}
+        </div>
+      </section>
+
+      <section class="metrics">
+        ${metric('Criada em', formatDate(session?.created_at))}
+        ${metric('Liberada em', formatDate(session?.authorized_at))}
+        ${metric('Tempo ate liberar', seconds(session?.seconds_to_authorize))}
+        ${metric('Backend', session?.auth_backend || '-')}
+        ${metric('SSID', session?.ssid || '-')}
+        ${metric('Status', session?.autorizado ? 'Autorizado' : 'Pendente')}
+      </section>
+
+      <section class="grid two">
+        <article class="panel">
+          <div class="panel-head"><h2>Dados da conexao</h2></div>
+          ${keyValues([
+            ['Sessao', session?.id],
+            ['Loja', session?.store_name],
+            ['Telefone', session?.telefone ? displayPhone(session.telefone) : ''],
+            ['Nome', session?.nome],
+            ['MAC', session?.mac],
+            ['IP', session?.client_ip],
+            ['AP', session?.ap],
+            ['Site', session?.unifi_site],
+            ['LGPD', session?.lgpd_accepted ? 'Aceito' : 'Nao'],
+            ['OTP', session?.otp_validado ? 'Validado' : 'Nao validado']
+          ])}
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><h2>Auditoria</h2></div>
+          ${auditTrail(auditLogs)}
+        </article>
+      </section>`
+  });
+}
+
 function input(label, name, value, placeholder = '', required = false) {
   return `<label>${escapeHtml(label)}
     <input name="${escapeHtml(name)}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder)}" ${required ? 'required' : ''}>
   </label>`;
 }
 
-function sessionsTable(rows) {
+function sessionsTable(rows, options = {}) {
   return table({
     headers: ['Data', 'Loja', 'Nome', 'Telefone', 'MAC', 'AP', 'Liberacao', 'Status'],
     rows: rows.map((row) => [
-      formatDate(row.created_at),
-      row.store_name,
+      raw(sessionLink(row.id, formatDate(row.created_at))),
+      row.store_id ? raw(storeLink(row.store_id, row.store_name)) : row.store_name,
       row.nome || '',
-      row.telefone ? raw(phoneLink(row.telefone)) : '',
+      row.telefone ? raw(phoneLink(row.telefone, options.storeId || row.store_id)) : '',
       row.mac,
       row.ap || '',
       seconds(row.seconds_to_authorize),
@@ -277,8 +449,19 @@ function table({ headers, rows }) {
   </table></div>`;
 }
 
-function phoneLink(telefone) {
-  return `<a href="/admin/phones/${encodeURIComponent(telefone)}">${escapeHtml(displayPhone(telefone))}</a>`;
+function phoneLink(telefone, storeId = null) {
+  const href = storeId
+    ? `/admin/stores/${storeId}/clients/${encodeURIComponent(telefone)}`
+    : `/admin/phones/${encodeURIComponent(telefone)}`;
+  return `<a href="${href}">${escapeHtml(displayPhone(telefone))}</a>`;
+}
+
+function storeLink(id, name) {
+  return `<a href="/admin/stores/${id}">${escapeHtml(name || `Loja ${id}`)}</a>`;
+}
+
+function sessionLink(id, label) {
+  return `<a href="/admin/sessions/${encodeURIComponent(id)}">${escapeHtml(label || id)}</a>`;
 }
 
 function status(row) {
@@ -328,4 +511,35 @@ function minutes(value) {
   const hours = Math.round(total / 60);
   if (hours < 48) return `${hours} h`;
   return `${Math.round(hours / 24)} dias`;
+}
+
+function trendBars(rows) {
+  if (!rows.length) return '<p class="empty">Nenhum dado encontrado ainda.</p>';
+  const max = Math.max(1, ...rows.map((row) => Number(row.sessions || 0)));
+  return `<div class="spark-bars">${rows.map((row) => {
+    const height = Math.max(8, Math.round((Number(row.sessions || 0) / max) * 100));
+    return `<div class="bar-cell">
+      <span class="bar-value">${escapeHtml(row.sessions || 0)}</span>
+      <span class="bar" style="height:${height}%"></span>
+      <span class="bar-label">${escapeHtml(row.label)}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function keyValues(items) {
+  return `<dl class="kv">${items.map(([key, value]) => `
+    <div>
+      <dt>${escapeHtml(key)}</dt>
+      <dd>${escapeHtml(value || '-')}</dd>
+    </div>`).join('')}</dl>`;
+}
+
+function auditTrail(rows) {
+  if (!rows.length) return '<p class="empty">Nenhum evento de auditoria registrado.</p>';
+  return `<ol class="timeline">${rows.map((row) => `
+    <li>
+      <strong>${escapeHtml(row.event)}</strong>
+      <span>${escapeHtml(formatDate(row.created_at))}</span>
+      <code>${escapeHtml(JSON.stringify(row.payload || {}))}</code>
+    </li>`).join('')}</ol>`;
 }

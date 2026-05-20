@@ -17,7 +17,10 @@ import {
   findStore,
   getAdminDashboard,
   getAdminPhoneDetails,
+  getAdminSessionDetails,
   getAdminStore,
+  getAdminStoreClientDetails,
+  getAdminStoreDashboard,
   getAdminStores,
   markAuthorized,
   markOtpValidated,
@@ -31,7 +34,16 @@ import { sendOtpWebhook, sendPostLoginWebhook } from './n8n.js';
 import { authorizeGuest } from './unifi.js';
 import { authorizeMikrotikClient } from './mikrotik.js';
 import { doneView, lgpdView, otpView, temporaryAccessView, validationConfirmView, validationErrorView } from './views.js';
-import { adminDashboardView, adminPhoneView, adminSessionsView, adminStoreFormView, adminStoresView } from './adminViews.js';
+import {
+  adminDashboardView,
+  adminPhoneView,
+  adminSessionView,
+  adminSessionsView,
+  adminStoreClientView,
+  adminStoreDetailView,
+  adminStoreFormView,
+  adminStoresView
+} from './adminViews.js';
 import { logger } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -185,6 +197,16 @@ app.get('/admin/sessions', requireAdmin, async (_req, res, next) => {
   }
 });
 
+app.get('/admin/sessions/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const data = await getAdminSessionDetails(req.params.id);
+    if (!data.session) return res.status(404).send('Sessao nao encontrada.');
+    res.send(adminSessionView(data));
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/admin/stores', requireAdmin, async (_req, res, next) => {
   try {
     const stores = await getAdminStores();
@@ -228,6 +250,27 @@ app.get('/admin/stores/:id/edit', requireAdmin, async (req, res, next) => {
       action: `/admin/stores/${store.id}`,
       store
     }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/admin/stores/:id/clients/:telefone', requireAdmin, async (req, res, next) => {
+  try {
+    const telefone = String(req.params.telefone || '').replace(/\D/g, '');
+    const data = await getAdminStoreClientDetails(req.params.id, telefone);
+    if (!data.store) return res.status(404).send('Loja nao encontrada.');
+    res.send(adminStoreClientView({ ...data, telefone }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/admin/stores/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const data = await getAdminStoreDashboard(req.params.id);
+    if (!data.store) return res.status(404).send('Loja nao encontrada.');
+    res.send(adminStoreDetailView(data));
   } catch (error) {
     next(error);
   }
